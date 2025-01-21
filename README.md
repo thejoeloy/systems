@@ -6,24 +6,34 @@ focus on open source components with licenses that encourage privacy, freedom, a
 
 ### Hardware
 
-CPU:
+CPU: Contains an implementation of the 5 stage pipelined RISC-V processor described in Computer Organization and Design by Patterson and Hennessey
+The processor implements the RV32I instructions. As of now, the processor is capable of running at 50 MHz on my Zedboard
 
-Cache:
+Cache: TODO! Contains an implementation of the direct mapped cache described in Computer Organization and Design by Patterson and Hennessey.
+The cache has a write-back scheme that uses write allocate, has a block size of 4, uses 32 bit addresses, and has a valid and dirty bit per block.
 
-Memory Management Unit:
+Virtual Memory Hardware: TODO! Contains an implementation of the hardware components and features that go into virtual memory. My implementation
+is based on the design described in Computer Organization and Design by Hennessey and Patterson. 
 
 ### Software
 
-Heap Allocator:
+Heap Allocator: Contains implementations of the implicit free list and explicit free list heap allocator described in Computer Systems: A
+Programmer's Perspective by Bryant and O'Hallaron. Both allocators have a scheme in which coalescing is performed immediately. The explicit free
+list heap allocator maintains its free list in address order. 
 
-Shell:
+Shell: TODO! Contains an implementation of a shell that is based on both the shell skeleton provided in Computer Systems: A Programmer's Perspective 
+and the Stanford CS110 assignment Stanford Shell. This program is capable of running built-in system commands, pipelining, redirection, signal
+handling, background tasks, and keyboard interrupts.
 
-Filesystem:
+Filesystem: TODO! Contains an implementation of the Unix v6 filesystem described in Principles of Computer System Design by Saltzer and Kaashoek.
 
-I/O:
+Virtual Memory Manager: TODO! Contains implementations of the the virtual memory management features described in Computer Systems: A Programmer's
+Perspective.
 
-Networking:
+I/O: A file containing the code for File I/O described in the Robust I/O section in Computer Systems: A Programmer's Perspective. 
 
-System Utilities:
+Networking: Contains an implementation of the tiny server described in Computer Systems: A Programmer's Perspective. 
+
+System Utilities: Contains implementations of the system utilities cat, ls, printenv, sort, tail, uniq, and which.
 
 
