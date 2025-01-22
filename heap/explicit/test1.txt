@@ -1,0 +1,16 @@
+init 256
+a 1 9
+a 2 7
+r 1 14
+f 2
+a 3 49
+r 1 8
+r 3 17
+r 3 25
+f 1
+a 4 67
+f 3
+f 4
+iterate
+destroy 256
+

@@ -1,22 +1,20 @@
-// This file is for testing out my implicit heap allocator
 #include "explicit.h"
 #include <stdio.h>
 
 int main() {
     ExpHeapInit(256);
-    IterateHeap();
-    void* p1 = ExpMalloc(40);
-    void* p2 = ExpMalloc(40);
-    void* p3 = ExpMalloc(16);
-    IterateHeap();
-    p1 = ExpRealloc(p1, 16);
+    void* p1 = ExpMalloc(9);
+    void* p2 = ExpMalloc(7);
+    p1 = ExpRealloc(p1, 14);
     ExpFree(p2);
-    void* p4 = ExpMalloc(24);
-    p4 = ExpRealloc(p4, 40);
-    IterateHeap();
-    ExpFree(p4);
-    ExpFree(p3);
+    void* p3 = ExpMalloc(49);
+    p1 = ExpRealloc(p1, 8);
+    p3 = ExpRealloc(p3, 17);
+    p3 = ExpRealloc(p3, 25);
     ExpFree(p1);
+    void* p4 = ExpMalloc(67);
+    ExpFree(p3);
+    ExpFree(p4);
     IterateHeap();
     ExpHeapDestroy();
     return 0;

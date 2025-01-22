@@ -1,4 +1,3 @@
-// This file is for testing out my implicit heap allocator
 #include "implicit.h"
 #include <stdio.h>
 
