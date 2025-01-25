@@ -1,47 +1,25 @@
-# Compiler and flags
+# Variables
 CC = gcc
-CFLAGS = -Wall -Wextra -g -std=c11
-LDFLAGS = -lm
-
-# Directories
-SRCDIR = src
-BUILDDIR = build
-BINDIR = bin
-TESTDIR = test
-
-# Target executable
-TARGET = $(BINDIR)/shell
-
-# Source and object files
-TEST_SOURCES = $(wildcard $(SRCDIR)/*.c)
-TEST_OBJECTS = $(patsubst $(TESTDIR)/%.c, $(BUILDDIR)/%.o, $(TEST_SOURCES))
+CFLAGS = -Wall -Wextra -g
+OBJ_FILES = builtins.o executor.o jobs.o parser.o signals.o shell.o
 
 # Default target
-all: $(TARGET)
+all: shell
 
-# Build target executables
-$(TARGET): $(OBJECTS)
-	@mkdir -p $(BUILDDIR)
+# Rule to build the final executable
+shell: $(OBJ_FILES)
+	$(CC) $(CFLAGS) -o $@ $(OBJ_FILES)
+
+# Rule to compile object files
+%.o: %.c %.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
-# Run the shell
-run: $(TARGET)
-	@echo "Running the shell..."
-	$(TARGET)
+# Special case for shell.o, since it doesn't have a header file
+shell.o: shell.c
+	$(CC) $(CFLAGS) -c $< -o $@
 
-# Build and run tests
-test: $(OBJECTS) $(TEST_OBJECTS)
-	@echo "Running tests..."
-	$(CC) $(CFLAGS) $^ -o $(BINDIR)/test_runner $(LD_FLAGS)
-	$(BINDIR)/test_runner
-
-# Clean up build directories
+# Clean up build artifacts
 clean:
-	@echo "Cleaning up..."
-	rm -rf $(BUILDDIR) $(BINDIR)
+	rm -f *.o shell
 
-# Rebuild everything
-rebuild: clean all
-
-# Phony targets
-.PHONY: all run test clean rebuild
+.PHONY: all clean
