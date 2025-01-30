@@ -1,10 +1,22 @@
 CC = gcc
-CFLAGS = -o shell
 
-all: shell
+CFLAGS = -Wall -Wextra -g
 
-shell: main.c
-	$(CC) $(CFLAGS) main.c
+TARGET = shell
+
+SRCS = main.c
+
+OBJS = $(SRCS:.c=.o)
+
+all: $(TARGET)
+
+$(TARGET): $(OBJS)
+	$(CC) $(CFLAGS) -o $(TARGET) $(OBJS)
+
+%.o: %.c
+	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
-	rm -f shell
+	rm -f $(OBJS) $(TARGET)
+
+rebuild: clean all
