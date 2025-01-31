@@ -78,7 +78,9 @@ int main() {
     
     // Evaluation loop
     while (1) {
+        fflush(stdout);
         printf("> ");
+        fflush(stdout);
         fgets(cmd_line, MAXLINE, stdin);
         if (feof(stdin))
             exit(0);
@@ -232,16 +234,108 @@ builtin_command (char **argv)
     
     // Slay
     if (!strcmp(argv[0], "slay")) {
+        if (argv[1] == NULL) {
+            fprintf(stderr, "%s: expected job number\n", argv[0]);
+            return 1;
+        }
+
+        char *endptr;
+        int job_num = strtol(argv[1], &endptr, 10);
+
+        if (*endptr != '\0') {
+            fprintf(stderr, "%s: invalid job number\n", argv[0]);
+            return 1;
+        }
+
+        job *j = first_job;
+        while (j != NULL && j->pgid != job_num)
+            j = j->next;
+
+        if (j == NULL) {
+            fprintf(stderr, "%s: no such job [%d]\n", argv[0], job_num);
+            return 1;
+        }
+
+        if (kill(-j->pgid, SIGKILL) < 0) {
+            perror("kill (SIGKILL)");
+            return 1;
+        }
+
+        
+        tcsetpgrp(shell_terminal, shell_pgid);
+        printf("> ");
+        fflush(stdout);
+        
+        
         return 1;
     }
     
     // Halt
     if (!strcmp(argv[0], "halt")) {
+        if (argv[1] == NULL) {
+            fprintf(stderr, "%s: expected job number\n", argv[0]);
+            return 1;
+        }
+
+        char *endptr;
+        int job_num = strtol(argv[1], &endptr, 10);
+
+        if (*endptr != '\0') {
+            fprintf(stderr, "%s: invalid job number\n", argv[0]);
+            return 1;
+        }
+
+        job *j = first_job;
+        while (j != NULL && j->pgid != job_num)
+            j = j->next;
+
+        if (j == NULL) {
+            fprintf(stderr, "%s: no such job [%d]\n", argv[0], job_num);
+            return 1;
+        }
+
+        if (kill(-j->pgid, SIGTSTP) < 0) {
+            perror("kill (SIGTSTP)");
+            return 1;
+        }
+
+        
+        tcsetpgrp(shell_terminal, shell_pgid);
+        printf("> ");
+        fflush(stdout);
+        
         return 1;
     }
-
+    
     // Continue
     if (!strcmp(argv[0], "continue")) {
+        if (argv[1] == NULL) {
+            fprintf(stderr, "%s: expected job number\n", argv[0]);
+            return 1;
+        }
+
+        char *endptr;
+        int job_num = strtol(argv[1], &endptr, 10);
+
+        if (*endptr != '\0') {
+            fprintf(stderr, "%s: invalid job number\n", argv[0]);
+            return 1;
+        }
+
+        job *j = first_job;
+        while (j != NULL && j->pgid != job_num)
+            j = j->next;
+
+        if (j == NULL) {
+            fprintf(stderr, "%s: no such job [%d]\n", argv[0], job_num);
+            return 1;
+        }
+
+        if (kill(-j->pgid, SIGCONT) < 0) {
+            perror("kill (SIGCONT)");
+            return 1;
+        }
+        
         return 1;
     }
     
