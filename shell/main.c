@@ -13,9 +13,6 @@
 // Defines
 #define MAXLINE 1024
 #define MAXARGS 100
-#define RUNNING 0
-#define STOPPED 1
-#define COMPLETED 2
 
 // Structs
 typedef struct process {
@@ -384,7 +381,7 @@ eval (char *cmd_line)
     char *argv[MAXARGS];
     char buf[MAXLINE];
     int bg;
-    pid_t pid;
+    //pid_t pid;
 
     strcpy(buf, cmd_line);
 
