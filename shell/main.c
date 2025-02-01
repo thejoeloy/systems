@@ -73,7 +73,6 @@ int main() {
     init_shell();
     // Declare buffer
     char cmd_line[MAXLINE];
-    char *argv[MAXARGS];
 
     // Setup signal handlers
     setup_signal_handlers();
@@ -399,33 +398,6 @@ eval (char *cmd_line)
     if (builtin_command(argv))
         return;
 
-    /*
-    // Launch a single process
-    process *p = malloc(sizeof(process));
-    p->argv = malloc((MAXARGS) * sizeof(char *));
-    for (int i = 0; argv[i] != NULL; i++) {
-        p->argv[i] = strdup(argv[i]);
-    }
-    p->argv[MAXARGS - 1] = NULL;
-    p->completed = 0;
-    p->stopped = 0;
-    p->status = 0;
-    p->next = NULL;
-
-    job *j = malloc(sizeof(job));
-    j->first_process = p;
-    j->pgid = 0;
-    j->command = strdup(cmd_line);
-    j->stdin = STDIN_FILENO;
-    j->stdout = STDOUT_FILENO;
-    j->stderr = STDERR_FILENO;
-    j->next = NULL;
-    */
-
-    for (int i = 0; argv[i] != NULL; i++) {
-        printf("argv[%d]: %s\n", i, argv[i]);
-    }
-
     process *head = malloc(sizeof(process));
     head->argv = malloc(MAXARGS * sizeof(char *));
     head->completed = 0;
@@ -469,7 +441,7 @@ eval (char *cmd_line)
     j->stderr = STDERR_FILENO;
     j->next = NULL;
     
-    print_job(j);
+    //print_job(j);
 
     launch_job(j, bg);
 
@@ -481,7 +453,7 @@ eval (char *cmd_line)
 void
 launch_process (process *p, pid_t pgid, int infile, int outfile, int errfile, int bg)
 {
-    printf("launch process\n");
+    //printf("launch process\n");
     pid_t pid = getpid();
     
     if (shell_is_interactive) {
@@ -531,109 +503,89 @@ launch_job (job *j, int bg)
     infile = j->stdin;
     for (p = j->first_process; p; p = p->next) {
         
-        // Setup file descriptors for process
-        if (p->next) {
-            if (pipe(fd) < 0) {
-                perror("pipe");
-                exit(1);
-            }
-            outfile = fd[1];
-        }
-        else {
-            int redirect_output = 0;
-            char *output_file = NULL;
-            outfile = j->stdout;
-
-            int i = 0;
-            while (p->argv[i] != NULL) {
-                if (strcmp(p->argv[i], ">") == 0 || strcmp(p->argv[i], ">>") == 0) {
-                    redirect_output = 1;
-                    output_file = p->argv[i + 1];
-                    if (output_file == NULL) {
-                        perror("Error file redirect");
-                        return;
-                    }
-
-                    if (strcmp(p->argv[i], ">") == 0) {
-                        outfile = open(output_file, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-                    }
-                    else if (strcmp(p->argv[i], ">>") == 0) {
-                        outfile = open(output_file, O_WRONLY | O_CREAT | O_APPEND, 0644);
-                    }
-
-                    if (outfile < 0) {
-                        perror("open");
-                        return;
-                    }
-
-                    p->argv[i] = NULL;
-                    p->argv[i + 1] = NULL;
-                    break;
+        char *input_file = NULL, *output_file = NULL;
+        int redirect_output = 0;
+        int i = 0;
+        while (p->argv[i] != NULL) {
+            // Input file redirection
+            if (strcmp(p->argv[i], "<") == 0) {
+                
+                input_file = p->argv[i + 1];
+                if (input_file == NULL) {
+                    fprintf(stderr, "Error: No file specified for input redirection\n");
+                    return;
                 }
-                i++;
+                
+                infile = open(input_file, O_RDONLY);
+                if (infile < 0) {
+                    perror("Open redirected input file");
+                    return;
+                }
+
+                p->argv[i] = NULL;
+                p->argv[i + 1] = NULL;
+                break;
             }
-        }
-        // Fork child processes
-        pid = fork();
-        if (pid == 0)
-            launch_process(p, j->pgid, infile, outfile, j->stderr, bg);
-        else if (pid < 0) {
-            perror("fork");
-            exit(1);
-        }
-        else {
-            p->pid = pid;
-            if (shell_is_interactive) {
-                if (!j->pgid)
-                    j->pgid = pid;
-                setpgid(pid, j->pgid);
+            // Output file redirection
+            if (strcmp(p->argv[i], ">") == 0 || strcmp(p->argv[i], ">>") == 0) {
+                
+                output_file = p->argv[i + 1];
+                if (output_file == NULL) {
+                    fprintf(stderr, "Error: No file specified for output redirection\n");
+                    return;
+                }
+
+
+                if (strcmp(p->argv[i], ">") == 0) {
+                    outfile = open(output_file, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+                }
+                else {
+                    outfile = open(output_file, O_WRONLY | O_CREAT | O_APPEND, 0644);
+                }
+                
+                if (outfile < 0) {
+                    perror("Open redirected output file");
+                    return;
+                }
+
+                redirect_output = 1;
+                p->argv[i] = NULL;
+                p->argv[i + 1] = NULL;
+                break;
             }
+            i++;
         }
 
-        if (infile != j->stdin)
-            close(infile);
-        if (outfile != j->stdout)
-            close(outfile);
-        infile = fd[0];        
-    }
-
-    add_job(j);
-
-    if (bg)
-        put_job_in_bg(j, 0);
-    else
-        put_job_in_fg(j, 0);
-    //print_job(j);
-}
-
-/*
-// jobs
-void 
-launch_job (job *j, int bg)
-{
-    //printf("launch job\n");
-    process *p;
-    pid_t pid;
-    int fd[2], infile, outfile;
-
-    infile = j->stdin;
-    for (p = j->first_process; p; p = p->next) {
-        
         // Setup file descriptors for process
-        if (p->next) {
+        if (p->next || redirect_output) {
             if (pipe(fd) < 0) {
                 perror("pipe");
                 exit(1);
             }
-            outfile = fd[1];
+            if (!redirect_output)
+                outfile = fd[1];
         }
         else {
             outfile = j->stdout;
         }
         // Fork child processes
         pid = fork();
-        if (pid == 0)
+        if (pid == 0) {
+            
+            if (infile != STDIN_FILENO)
+                if (dup2(infile, STDIN_FILENO) < 0) {
+                    perror("dup2 infile");
+                    exit(1);
+                }
+            
+            if (outfile != STDOUT_FILENO)
+                if (dup2(outfile, STDOUT_FILENO) < 0) {
+                    perror("dup2 outfile");
+                    exit(1);
+                }
+            
             launch_process(p, j->pgid, infile, outfile, j->stderr, bg);
+        }
         else if (pid < 0) {
             perror("fork");
             exit(1);
@@ -646,11 +598,12 @@ launch_job (job *j, int bg)
                 setpgid(pid, j->pgid);
             }
         }
-
+        
         if (infile != j->stdin)
             close(infile);
         if (outfile != j->stdout)
             close(outfile);
+        
         infile = fd[0];        
     }
 
@@ -662,7 +615,7 @@ launch_job (job *j, int bg)
         put_job_in_fg(j, 0);
     //print_job(j);
 }
-*/
+
 void
 put_job_in_fg (job *j, int cont)
 {
