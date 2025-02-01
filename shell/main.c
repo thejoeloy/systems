@@ -397,8 +397,8 @@ eval (char *cmd_line)
     if (builtin_command(argv))
         return;
 
-    
-    // Setup process struct and launch process
+    /*
+    // Launch a single process
     process *p = malloc(sizeof(process));
     p->argv = malloc((MAXARGS) * sizeof(char *));
     for (int i = 0; argv[i] != NULL; i++) {
@@ -409,17 +409,66 @@ eval (char *cmd_line)
     p->stopped = 0;
     p->status = 0;
     p->next = NULL;
-    
-    // Initialize job struct
-    job *j = malloc(sizeof(job));;
+
+    job *j = malloc(sizeof(job));
     j->first_process = p;
     j->pgid = 0;
-    j->command = strdup(buf);
+    j->command = strdup(cmd_line);
     j->stdin = STDIN_FILENO;
     j->stdout = STDOUT_FILENO;
     j->stderr = STDERR_FILENO;
     j->next = NULL;
-     
+    */
+
+    for (int i = 0; argv[i] != NULL; i++) {
+        printf("argv[%d]: %s\n", i, argv[i]);
+    }
+
+    process *head = malloc(sizeof(process));
+    head->argv = malloc(MAXARGS * sizeof(char *));
+    head->completed = 0;
+    head->stopped = 0;
+    head->status = 0;
+    head->next = NULL;
+
+    process *curr = head;
+    int argIndex = 0;
+
+    for (int i = 0; argv[i] != NULL; i++) {
+        if (strcmp(argv[i], "|") == 0) {
+            curr->argv[argIndex] = NULL;
+            curr->completed = 0;
+            curr->stopped = 0;
+            curr->status = 0;
+
+            curr->next = malloc(sizeof(process));
+            curr = curr->next;
+            curr->argv = malloc(MAXARGS * sizeof(char *));
+            curr->completed = 0;
+            curr->stopped = 0;
+            curr->status = 0;
+            curr->next = NULL;
+            argIndex = 0;
+        }
+        else {
+            curr->argv[argIndex++] = strdup(argv[i]);
+        }
+    }
+
+    curr->argv[argIndex] = NULL;
+
+    // Initialize job struct
+    job *j = malloc(sizeof(job));;
+    j->first_process = head;
+    j->pgid = 0;
+    j->command = strdup(cmd_line);
+    j->stdin = STDIN_FILENO;
+    j->stdout = STDOUT_FILENO;
+    j->stderr = STDERR_FILENO;
+    j->next = NULL;
+    
+    print_job(j);
+
     launch_job(j, bg);
 
     if (bg)
@@ -429,7 +478,7 @@ eval (char *cmd_line)
 void
 launch_process (process *p, pid_t pgid, int infile, int outfile, int errfile, int bg)
 {
-    //printf("launch process\n");
+    printf("launch process\n");
     pid_t pid = getpid();
     
     if (shell_is_interactive) {
@@ -650,13 +699,14 @@ print_job (job *j)
         return;
     }
 
-    printf("Job Command: %s\n", j->command ? j->command : "(null)");
+    printf("Job Command: %s", j->command ? j->command : "(null)");
     printf("PGID: %d\n", j->pgid);
     printf("Notified: %s\n", j->notified ? "Yes" : "No");
     printf("File Descriptors: stdin=%d, stdout=%d, stderr=%d\n",
            j->stdin, j->stdout, j->stderr);
 
     printf("Processes in job:\n");
+    printf("----\n");
     for (process *p = j->first_process; p; p = p->next) {
         print_process(p);
         printf("----\n");
