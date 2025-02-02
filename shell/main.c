@@ -66,8 +66,10 @@ void signal_handler_INT();
 
 // main loop
 int main() {
+    
     // Initialize shell
     init_shell();
+    
     // Declare buffer
     char cmd_line[MAXLINE];
 
@@ -76,9 +78,7 @@ int main() {
     
     // Evaluation loop
     while (1) {
-        fflush(stdout);
         printf("> ");
-        fflush(stdout);
         fgets(cmd_line, MAXLINE, stdin);
         if (feof(stdin))
             exit(0);
@@ -259,12 +259,8 @@ builtin_command (char **argv)
             return 1;
         }
 
-        
-        tcsetpgrp(shell_terminal, shell_pgid);
-        printf("> ");
-        fflush(stdout);
-        
-        
+        printf("Job [%d] slayed by signal %d\n", j->pgid, SIGKILL);
+
         return 1;
     }
     
@@ -297,11 +293,8 @@ builtin_command (char **argv)
             return 1;
         }
 
-        
-        tcsetpgrp(shell_terminal, shell_pgid);
-        printf("> ");
-        fflush(stdout);
-        
+        printf("Job [%d] stopped by signal %d\n", j->pgid, SIGTSTP);
+
         return 1;
     }
     
@@ -333,6 +326,9 @@ builtin_command (char **argv)
             perror("kill (SIGCONT)");
             return 1;
         }
+        
+        printf("Job [%d] continued by signal %d\n", j->pgid, SIGCONT);
+        put_job_in_bg(j, 1);
         
         return 1;
     }
@@ -438,8 +434,6 @@ eval (char *cmd_line)
     j->stderr = STDERR_FILENO;
     j->next = NULL;
     
-    //print_job(j);
-
     launch_job(j, bg);
 
     if (bg)
@@ -450,7 +444,6 @@ eval (char *cmd_line)
 void
 launch_process (process *p, pid_t pgid, int infile, int outfile, int errfile, int bg)
 {
-    //printf("launch process\n");
     pid_t pid = getpid();
     
     if (shell_is_interactive) {
@@ -482,7 +475,6 @@ launch_process (process *p, pid_t pgid, int infile, int outfile, int errfile, in
         close(errfile);
     }
 
-    //print_process(p);
     execvp(p->argv[0], p->argv);
     perror("execvp");
     exit(0);
@@ -492,7 +484,6 @@ launch_process (process *p, pid_t pgid, int infile, int outfile, int errfile, in
 void 
 launch_job (job *j, int bg)
 {
-    //printf("launch job\n");
     process *p;
     pid_t pid;
     int fd[2], infile, outfile;
@@ -610,13 +601,11 @@ launch_job (job *j, int bg)
         put_job_in_bg(j, 0);
     else
         put_job_in_fg(j, 0);
-    //print_job(j);
 }
 
 void
 put_job_in_fg (job *j, int cont)
 {
-    //printf("put_job_in_fg\n");
     tcsetpgrp(shell_terminal, j->pgid);
 
     if (cont) {
@@ -637,7 +626,6 @@ put_job_in_fg (job *j, int cont)
 void
 put_job_in_bg (job *j, int cont)
 {
-    //printf("put job in bg\n");
     if (cont)
         if (kill(-j->pgid, SIGCONT) < 0)
             perror("kill (SIGCONT)");
@@ -689,7 +677,6 @@ job_is_completed (job *j)
     if (!j || !j->first_process) return 1;
 
     for (process *p = j->first_process; p; p = p->next) {
-        //printf("Checking process: %p, completed: %d\n", (void *)p, p->completed);
         if (!p) return 1;
         if (!p->completed)
             return 0;
@@ -700,7 +687,6 @@ job_is_completed (job *j)
 void
 free_job (job *j)
 {
-    //printf("free job\n");
     process *p = j->first_process;
     while (p) {
         process *pnext = p->next;
@@ -787,19 +773,14 @@ signal_handler_CHLD (int sig)
         // Handle process termination
         if (WIFEXITED(status) || WIFSIGNALED(status)) {
             p->completed = 1;
-            if (WIFSIGNALED(status)) {
-                printf("Job [%d] terminated by signal %d\n", j->pgid, WTERMSIG(status));
-            }
         }
 
         else if (WIFSTOPPED(status)) {
             p->stopped = 1;
-            printf("Job [%d] stopped by signal %d\n", j->pgid, WSTOPSIG(status));            
         }
 
         else if (WIFCONTINUED(status)) {
             p->stopped = 0;
-            printf("Job [%d] continued\n", j->pgid);
         }
 
         if (job_is_completed(j)) {
@@ -812,6 +793,7 @@ signal_handler_CHLD (int sig)
         else if (job_is_stopped(j)) {
             tcsetpgrp(shell_terminal, shell_pgid);
         }
+
     }
 }
 
