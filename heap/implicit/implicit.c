@@ -93,7 +93,6 @@ imp_right_coalesce (tag* curr_header)
         imp_set_payload_size(curr_header, new_payload_size);
             
         // Create new Footer and set payload size and alloc status
-        //tag** new_footer = (tag**)((char*)curr_header + new_payload_size + TAG_SIZE);
         tag* new_footer = imp_get_footer(curr_header);
         imp_set_payload_size(new_footer, new_payload_size);
         imp_set_free(new_footer);
@@ -115,7 +114,6 @@ imp_left_coalesce (tag* curr_header)
         imp_set_payload_size(prev_header, new_payload_size);
 
         // Set footer of base to new payload size
-        //tag** new_footer = (tag**)((char*)curr_header + curr_payload_size + TAG_SIZE);
         tag* new_footer = imp_get_footer(prev_header);
         imp_set_payload_size(new_footer, new_payload_size);
         imp_set_free(new_footer);
@@ -300,7 +298,6 @@ imp_realloc (void* old_ptr, size_t new_payload_size)
         imp_set_payload_size(curr_header, new_payload_size);
 
         // Create footer for current block and set payload and alloc status
-        //tag** curr_footer = (tag**)((char*)curr_header + TAG_SIZE + new_payload_size);
         tag* curr_footer = imp_get_footer(curr_header);
         imp_set_payload_size(curr_footer, new_payload_size);
         imp_set_alloc(curr_footer);
@@ -312,7 +309,6 @@ imp_realloc (void* old_ptr, size_t new_payload_size)
         imp_set_free(next_header);
 
         // Create footer for new block and set payload and alloc status
-        //tag** next_footer = (tag**)((char*)next_header + TAG_SIZE + next_payload_size);
         tag* next_footer = imp_get_footer(next_header);
         imp_set_payload_size(next_footer, next_payload_size);
         imp_set_free(next_footer);
@@ -331,20 +327,17 @@ imp_realloc (void* old_ptr, size_t new_payload_size)
             imp_set_payload_size(curr_header, new_payload_size);
 
             // Set payload and alloc status for footer of current block
-            //tag** curr_footer = (tag**)((char*)curr_header + TAG_SIZE + new_payload_size);
             tag* curr_footer = imp_get_footer(curr_header);
             imp_set_payload_size(curr_footer, new_payload_size);
             imp_set_alloc(curr_footer);
 
             // Set payload and alloc status for header of next block
             next_payload_size = next_payload_size + (old_payload_size - new_payload_size);
-            //tag** next_header = (tag**)((char*)curr_footer + TAG_SIZE);
             tag* next_header = imp_get_next_header(curr_header);
             imp_set_payload_size(next_header, next_payload_size);
             imp_set_free(next_header);
 
             // Set payload and alloc status for footer of next block
-            //tag** next_footer = (tag**)((char*)next_header + TAG_SIZE + next_payload_size);
             tag* next_footer = imp_get_footer(next_header);
             imp_set_payload_size(next_footer, next_payload_size);
             imp_set_free(next_footer);
@@ -357,20 +350,17 @@ imp_realloc (void* old_ptr, size_t new_payload_size)
             imp_set_payload_size(curr_header, new_payload_size);
 
             // Set payload and alloc status for footer of current block
-            //tag** curr_footer = (tag**)((char*)curr_header + TAG_SIZE + new_payload_size);
             tag* curr_footer = imp_get_footer(curr_header);
             imp_set_payload_size(curr_footer, new_payload_size);
             imp_set_alloc(curr_footer);
 
             // Set payload and alloc status for header of next block
             next_payload_size = next_payload_size - (new_payload_size - old_payload_size);
-            //tag** next_header = (tag**)((char*)curr_footer + TAG_SIZE);
             tag* next_header = imp_get_next_header(curr_header);
             imp_set_payload_size(next_header, next_payload_size);
             imp_set_free(next_header);
 
             // Set payload and alloc status for footer of next block
-            //tag** next_footer = (tag**)((char*)next_header + TAG_SIZE + next_payload_size);
             tag* next_footer = imp_get_footer(next_header);
             imp_set_payload_size(next_footer, next_payload_size);
             imp_set_free(next_footer);
