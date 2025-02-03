@@ -6,575 +6,633 @@
 void* sbrk(intptr_t increment);
 
 static void* base;
-static void* heapListPtr;
-static void* maxHeapAddr;
-static size_t heapSize;
-static Tag* freeListStart;
+static void* heap_list_ptr;
+static void* max_heap_addr;
+static size_t heap_size;
+static tag* free_list_start;
 
-// Tag helpers
-Tag* ExpGetHeader(void* ptr) {
-	return (Tag*)((char*)ptr - TAG_SIZE);
+// tag helpers
+tag* 
+exp_get_header (void* ptr) 
+{
+	return (tag*)((char*)ptr - TAG_SIZE);
 }
 
-Tag* ExpGetFooter(Tag* currHeader) {
-	return (Tag*)((char*)currHeader + ExpGetPayloadSize(currHeader) + TAG_SIZE);
+tag* 
+exp_get_footer (tag* curr_header) 
+{
+	return (tag*)((char*)curr_header + exp_get_payload_size(curr_header) + TAG_SIZE);
 }
 
-Tag* ExpGetNextHeader(Tag* currHeader) {
-	size_t payloadSize = ExpGetPayloadSize(currHeader);
-	Tag* nextHeader = (Tag*)((char*)currHeader + (payloadSize + TWO_TAG_SIZE));
-	return nextHeader;	
+tag* 
+exp_get_next_header (tag* curr_header) 
+{
+	size_t payload_size = exp_get_payload_size(curr_header);
+	tag* next_header = (tag*)((char*)curr_header + (payload_size + TWO_TAG_SIZE));
+	return next_header;	
 }
 
-Tag* ExpGetPrevFooter(Tag* currHeader) {
-	return (Tag*)((char*)currHeader - TAG_SIZE);	
+tag* 
+exp_get_prev_footer (tag* curr_header) 
+{
+	return (tag*)((char*)curr_header - TAG_SIZE);	
 }
 
-Tag* ExpGetPrevHeader(Tag* prevFooter) {
-	return (Tag*)((char*)prevFooter - ExpGetPayloadSize(prevFooter) - TAG_SIZE);
+tag* 
+exp_get_prev_header (tag* prev_footer) 
+{
+	return (tag*)((char*)prev_footer - exp_get_payload_size(prev_footer) - TAG_SIZE);
 }
 
-size_t ExpGetPayloadSize(Tag* t) {
+size_t 
+exp_get_payload_size (tag* t) 
+{
 	return (size_t)((t->tag & PAYLOAD_SIZE_MASK) >> 3);
 }
 
-size_t ExpGetAlloc(Tag* t) {
+size_t 
+exp_get_alloc (tag* t) 
+{
 	return t->tag & IS_ALLOC;
 }
 
-void ExpSetFree(Tag* t) {
+void 
+exp_set_free (tag* t) 
+{
     t->tag &= PAYLOAD_SIZE_MASK;
 }
 
-void ExpSetAlloc(Tag* t) {
+void 
+exp_set_alloc (tag* t) 
+{
     t->tag |= IS_ALLOC;
 }
 
-void ExpSetPayloadSize(Tag* t, size_t size) {
+void 
+exp_set_payload_size (tag* t, size_t size) 
+{
 	size <<= 3;
 	t->tag = (t->tag & IS_ALLOC) | size;
 }
 
-// FreeListPtr helpers
-FreeListPtr* ExpGetFreeListPtr(Tag* currHeader) {
-    return (FreeListPtr*)((char*)currHeader + TAG_SIZE);
+// free_list_ptr helpers
+free_list_ptr* 
+exp_get_flp (tag* curr_header) 
+{
+    return (free_list_ptr*)((char*)curr_header + TAG_SIZE);
 }
 
-FreeListPtr* ExpGetNextFreeListPtr(FreeListPtr* currFLP) {
-    return ExpGetFreeListPtr(currFLP->succ);
+free_list_ptr* 
+exp_get_next_flp (free_list_ptr* curr_flp) 
+{
+    return exp_get_flp(curr_flp->succ);
 }
 
-FreeListPtr* ExpGetPrevFreeListPtr(FreeListPtr* currFLP) {
-    return ExpGetFreeListPtr(currFLP->pred);
+free_list_ptr* 
+exp_get_prev_flp (free_list_ptr* curr_flp) 
+{
+    return exp_get_flp(curr_flp->pred);
 }
 
-Tag* ExpGetPred(FreeListPtr* flp) {
+tag* 
+exp_get_pred (free_list_ptr* flp) 
+{
     return flp->pred;
 }
 
-Tag* ExpGetSucc(FreeListPtr* flp) {
+tag* 
+exp_get_succ (free_list_ptr* flp) 
+{
     return flp->succ;
 }
 
-void ExpSetPred(FreeListPtr* flp, Tag* pred) {
+void 
+exp_set_pred (free_list_ptr* flp, tag* pred) 
+{
     flp->pred = pred;
 }
 
-void ExpSetSucc(FreeListPtr* flp, Tag* succ) {
+void 
+exp_set_succ (free_list_ptr* flp, tag* succ) 
+{
     flp->succ = succ;
 }
 
 // Heap function helpers
-size_t ExpRoundUp(size_t size, size_t mult) {
+size_t 
+exp_round_up (size_t size, size_t mult) 
+{
 	return (size + mult-1) & ~(mult-1);
 }
 
-void ExpInsertFreeBlock(Tag* currHeader) {
-    FreeListPtr* newFLP = ExpGetFreeListPtr(currHeader);
-    Tag* iterHeader = freeListStart;
-    FreeListPtr* iterFLP = ExpGetFreeListPtr(iterHeader);
+void 
+exp_insert_free_block (tag* curr_header) 
+{
+    free_list_ptr* new_flp = exp_get_flp(curr_header);
+    tag* iter_header = free_list_start;
+    free_list_ptr* iter_flp = exp_get_flp(iter_header);
     
     // In this case we insert to front of list
-    if (iterHeader > currHeader) {
-        ExpSetPred(newFLP, iterFLP->pred);
-        ExpSetSucc(newFLP, iterHeader);
-        ExpSetPred(iterFLP, currHeader);
-        freeListStart = currHeader;
+    if (iter_header > curr_header) {
+        exp_set_pred(new_flp, iter_flp->pred);
+        exp_set_succ(new_flp, iter_header);
+        exp_set_pred(iter_flp, curr_header);
+        free_list_start = curr_header;
     }
 
     // Otherwise we traverse the list
-    while(iterHeader != NULL) {
+    while(iter_header != NULL) {
         // Inserting to somewhere in the middle of the free list
-        if (currHeader > iterHeader && currHeader < iterFLP->succ && iterFLP->succ != NULL) {
-            FreeListPtr* iterNextFLP = ExpGetNextFreeListPtr(iterFLP);
-            Tag* iterNextHeader = ExpGetHeader(iterNextFLP);
-            ExpSetPred(iterNextFLP, currHeader);
+        if (curr_header > iter_header && curr_header < iter_flp->succ && iter_flp->succ != NULL) {
+            free_list_ptr* iter_next_flp = exp_get_next_flp(iter_flp);
+            tag* iter_next_header = exp_get_header(iter_next_flp);
+            exp_set_pred(iter_next_flp, curr_header);
 
-            ExpSetPred(newFLP, iterHeader);
-            ExpSetSucc(newFLP, iterNextHeader);
+            exp_set_pred(new_flp, iter_header);
+            exp_set_succ(new_flp, iter_next_header);
 
-            ExpSetSucc(iterFLP, currHeader);
+            exp_set_succ(iter_flp, curr_header);
             break;
         }
         // Inserting to the end of the free list
-        if (currHeader > iterHeader && iterFLP->succ == NULL) {
-            ExpSetPred(newFLP, iterHeader);
-            ExpSetSucc(newFLP, iterFLP->succ);
+        if (curr_header > iter_header && iter_flp->succ == NULL) {
+            exp_set_pred(new_flp, iter_header);
+            exp_set_succ(new_flp, iter_flp->succ);
             
-            ExpSetSucc(iterFLP, currHeader);
+            exp_set_succ(iter_flp, curr_header);
             break;
         }
 
         // Increment the free list pointer iterators
-        iterHeader = iterFLP->succ;
-        iterFLP = ExpGetFreeListPtr(iterHeader);
+        iter_header = iter_flp->succ;
+        iter_flp = exp_get_flp(iter_header);
 
     }
 }
 
-void ExpRightCoalesce(Tag* currHeader) {
-    Tag* nextHeader = ExpGetNextHeader(currHeader);
+void 
+exp_right_coalesce (tag* curr_header) 
+{
+    tag* next_header = exp_get_next_header(curr_header);
 
     // Check if next block is free and coalesce if it is
-    if (ExpGetAlloc(nextHeader) == IS_FREE) {
+    if (exp_get_alloc(next_header) == IS_FREE) {
         // Set header of base to new payload size
-        size_t currPayloadSize = ExpGetPayloadSize(currHeader);
-        size_t nextPayloadSize = ExpGetPayloadSize(nextHeader);
-        size_t newPayloadSize = nextPayloadSize + currPayloadSize + TWO_TAG_SIZE;
-        ExpSetPayloadSize(currHeader, newPayloadSize);
+        size_t curr_payload_size = exp_get_payload_size(curr_header);
+        size_t next_payload_size = exp_get_payload_size(next_header);
+        size_t new_payload_size = next_payload_size + curr_payload_size + TWO_TAG_SIZE;
+        exp_set_payload_size(curr_header, new_payload_size);
             
         // Create new Footer and set payload size and alloc status
-        Tag* newFooter = (Tag*)((char*)currHeader + newPayloadSize + TAG_SIZE);
-        ExpSetPayloadSize(newFooter, newPayloadSize);
-        ExpSetFree(newFooter);
+        tag* new_footer = (tag*)((char*)curr_header + new_payload_size + TAG_SIZE);
+        exp_set_payload_size(new_footer, new_payload_size);
+        exp_set_free(new_footer);
 
         // Update free list pointers
-        FreeListPtr* currFLP = ExpGetFreeListPtr(currHeader);
-        FreeListPtr* nextFLP = ExpGetFreeListPtr(nextHeader);
-        FreeListPtr* nextPredFLP = ExpGetPrevFreeListPtr(nextFLP);
-        FreeListPtr* nextSuccFLP = ExpGetNextFreeListPtr(nextFLP);
+        free_list_ptr* curr_flp = exp_get_flp(curr_header);
+        free_list_ptr* next_flp = exp_get_flp(next_header);
+        free_list_ptr* next_pred_flp = exp_get_prev_flp(next_flp);
+        free_list_ptr* next_succ_flp = exp_get_next_flp(next_flp);
         
-        // If predecessor to nextFLP doesnt exist, currHeader is new start to free list
-        if (nextFLP->pred == NULL || nextFLP->pred == currHeader) {
-            freeListStart = currHeader;
-            ExpSetPred(currFLP, NULL);
+        // If predecessor to next_flp doesnt exist, curr_header is new start to free list
+        if (next_flp->pred == NULL || next_flp->pred == curr_header) {
+            free_list_start = curr_header;
+            exp_set_pred(curr_flp, NULL);
         }
-        // If predecessor to nextFLP does exist, make it currHeaders predecessor and currHeader should be its new successor
+        // If predecessor to next_flp does exist, make it curr_headers predecessor and curr_header should be its new successor
         else {
-            ExpSetPred(currFLP, nextFLP->pred);
-            ExpSetSucc(nextPredFLP, currHeader);
+            exp_set_pred(curr_flp, next_flp->pred);
+            exp_set_succ(next_pred_flp, curr_header);
         }
-        // If successor to nextFLP exists, make currHeader its predecessor and set nextFLP as its successor
-        if (nextFLP->succ != NULL) {
-            ExpSetSucc(currFLP, nextFLP->succ);
-            ExpSetPred(nextSuccFLP, currHeader);
+        // If successor to next_flp exists, make curr_header its predecessor and set next_flp as its successor
+        if (next_flp->succ != NULL) {
+            exp_set_succ(curr_flp, next_flp->succ);
+            exp_set_pred(next_succ_flp, curr_header);
         }
         else {
-            ExpSetSucc(currFLP, nextFLP->succ);
+            exp_set_succ(curr_flp, next_flp->succ);
         }
     }
 }
 
-void ExpLeftCoalesce(Tag* currHeader) {
-    Tag* prevFooter = ExpGetPrevFooter(currHeader);
+void 
+exp_left_coalesce (tag* curr_header) 
+{
+    tag* prev_footer = exp_get_prev_footer(curr_header);
 
     // Check if previous block is free and coalesce if it is
-    if (ExpGetAlloc(prevFooter) == IS_FREE) {
+    if (exp_get_alloc(prev_footer) == IS_FREE) {
         // Set header of previous block to new payload size
-        Tag* prevHeader = ExpGetPrevHeader(prevFooter);
-        size_t prevPayloadSize = ExpGetPayloadSize(prevFooter);
-        size_t currPayloadSize = ExpGetPayloadSize(currHeader);
-        size_t newPayloadSize = currPayloadSize + prevPayloadSize + TWO_TAG_SIZE;
-        ExpSetPayloadSize(prevHeader, newPayloadSize);
+        tag* prev_header = exp_get_prev_header(prev_footer);
+        size_t prev_payload_size = exp_get_payload_size(prev_footer);
+        size_t curr_payload_size = exp_get_payload_size(curr_header);
+        size_t new_payload_size = curr_payload_size + prev_payload_size + TWO_TAG_SIZE;
+        exp_set_payload_size(prev_header, new_payload_size);
 
         // Set footer of base to new payload size
-        Tag* newFooter = (Tag*)((char*)currHeader + currPayloadSize + TAG_SIZE);
-        ExpSetPayloadSize(newFooter, newPayloadSize);
-        ExpSetFree(newFooter);
+        tag* new_footer = (tag*)((char*)curr_header + curr_payload_size + TAG_SIZE);
+        exp_set_payload_size(new_footer, new_payload_size);
+        exp_set_free(new_footer);
 
         // Update free list pointers
-        FreeListPtr* currFLP = ExpGetFreeListPtr(currHeader);
-        FreeListPtr* prevFLP = ExpGetFreeListPtr(prevHeader);
-        FreeListPtr* currSuccFLP = ExpGetNextFreeListPtr(currFLP);
+        free_list_ptr* curr_flp = exp_get_flp(curr_header);
+        free_list_ptr* prev_flp = exp_get_flp(prev_header);
+        free_list_ptr* curr_succ_flp = exp_get_next_flp(curr_flp);
 
-        // Set predecessor of successor to currHeader to prevHeader if it exists 
-        if (currFLP->succ != NULL) {
-            ExpSetPred(currSuccFLP, prevHeader);
+        // Set predecessor of successor to curr_header to prev_header if it exists 
+        if (curr_flp->succ != NULL) {
+            exp_set_pred(curr_succ_flp, prev_header);
         }
 
         // Set successor to new FLP
-        ExpSetSucc(prevFLP, currFLP->succ);
+        exp_set_succ(prev_flp, curr_flp->succ);
 
-        // Update freeListStart to prevHeader if currHeader was previously start of free list
-        if (currFLP->pred == NULL) {
-            freeListStart = prevHeader;
+        // Update free_list_start to prev_header if curr_header was previously start of free list
+        if (curr_flp->pred == NULL) {
+            free_list_start = prev_header;
         }
 
     }
 }
 
 // Heap debugging
-void PrintHeader(Tag* currHeader) {
-	if (currHeader == NULL) return;
-	size_t last3bits = ExpGetAlloc(currHeader);
-    printf("Address : %p, payloadSize : %zu, Last 3 bits : %zu\n", (void*)currHeader, ExpGetPayloadSize(currHeader), last3bits);
+void 
+print_header (tag* curr_header) 
+{
+	if (curr_header == NULL) return;
+	size_t last3bits = exp_get_alloc(curr_header);
+    printf("Address : %p, payload_size : %zu, Last 3 bits : %zu\n", (void*)curr_header, exp_get_payload_size(curr_header), last3bits);
     if (last3bits == IS_FREE) {
-        FreeListPtr* flp = ExpGetFreeListPtr(currHeader);
-        printf("pred_addr : %p, pred : %p\n", (void*)((char*)currHeader + PRED_OFFSET), (void*)flp->pred);
-        printf("succ_addr : %p, succ : %p\n", (void*)((char*)currHeader + SUCC_OFFSET), (void*)flp->succ);
+        free_list_ptr* flp = exp_get_flp(curr_header);
+        printf("pred_addr : %p, pred : %p\n", (void*)((char*)curr_header + PRED_OFFSET), (void*)flp->pred);
+        printf("succ_addr : %p, succ : %p\n", (void*)((char*)curr_header + SUCC_OFFSET), (void*)flp->succ);
     }
 }
 
-void PrintFooter(Tag* currFooter) {
-    if (currFooter == NULL) return;
-    size_t last3bits = ExpGetAlloc(currFooter);
-    printf("Address : %p, payloadSize : %zu, Last 3 bits : %zu\n", (void*)currFooter, ExpGetPayloadSize(currFooter), last3bits);
+void 
+print_footer (tag* curr_footer) 
+{
+    if (curr_footer == NULL) return;
+    size_t last3bits = exp_get_alloc(curr_footer);
+    printf("Address : %p, payload_size : %zu, Last 3 bits : %zu\n", (void*)curr_footer, exp_get_payload_size(curr_footer), last3bits);
 }
 
-void IterateHeap() {
-    printf("IterateHeap\n");
-    printf("freeListStart: %p\n", freeListStart);
+void 
+iterate_heap () 
+{
+    printf("iterate_heap\n");
+    printf("free_list_start: %p\n", free_list_start);
     void* curr = base;
-    PrintFooter(base);
-    curr = (Tag*)((char*)base + TAG_SIZE);
-    PrintFooter(curr);
-    curr = heapListPtr;
+    print_footer(base);
+    curr = (tag*)((char*)base + TAG_SIZE);
+    print_footer(curr);
+    curr = heap_list_ptr;
 
-    while(curr < maxHeapAddr - TAG_SIZE) {
-        Tag* currHeader = (Tag*)curr;
-        size_t payloadSize = ExpGetPayloadSize(currHeader);
-        Tag* currFooter = (Tag*)((char*)currHeader + TAG_SIZE + payloadSize);
-        PrintHeader(currHeader);
-        PrintFooter(currFooter);
-        curr = (void*)((char*)currFooter + TAG_SIZE);
+    while(curr < max_heap_addr - TAG_SIZE) {
+        tag* curr_header = (tag*)curr;
+        size_t payload_size = exp_get_payload_size(curr_header);
+        tag* curr_footer = (tag*)((char*)curr_header + TAG_SIZE + payload_size);
+        print_header(curr_header);
+        print_footer(curr_footer);
+        curr = (void*)((char*)curr_footer + TAG_SIZE);
     }
 
-    PrintFooter((Tag*)((char*)maxHeapAddr - TAG_SIZE));
+    print_footer((tag*)((char*)max_heap_addr - TAG_SIZE));
 }
 
 // Heap Functions
-int ExpHeapInit(size_t size) {
+int 
+exp_heap_init (size_t size) 
+{
     // Ensure that requested size is non-zero
     if (size == 0) {
         return 0;
     }
 
     // Allocate space for heap and ensure that enough space exists
-    size_t adjustedSize = ExpRoundUp(size, ALIGN);
+    size_t adjusted_size = exp_round_up(size, ALIGN);
     
     // Allocate space for the heap and ensure that the allocation doesnt fail
-    base = sbrk(adjustedSize);
+    base = sbrk(adjusted_size);
     if (base == (void*)-1) {
         return 0; // sbrk failed
     }
     // Initialize heap pointers
-    maxHeapAddr = (char*)base + adjustedSize;
-    heapSize = adjustedSize;
-    heapListPtr = (char*)base + TWO_TAG_SIZE;
+    max_heap_addr = (char*)base + adjusted_size;
+    heap_size = adjusted_size;
+    heap_list_ptr = (char*)base + TWO_TAG_SIZE;
 
 	// Setup Prologue and Epilogue blocks
-	Tag* prologueHeader = (Tag*)base;
-	Tag* prologueFooter = (Tag*)((char*)base + TAG_SIZE);
-	Tag* epilogue = (Tag*)((char*)maxHeapAddr - TAG_SIZE);
-	ExpSetPayloadSize(prologueHeader, TWO_TAG_SIZE);
-	ExpSetPayloadSize(prologueFooter, TWO_TAG_SIZE);
-	ExpSetAlloc(prologueHeader);
-	ExpSetAlloc(prologueFooter);
-	ExpSetPayloadSize(epilogue, 0);
-	ExpSetAlloc(epilogue);
+	tag* prologue_header = (tag*)base;
+	tag* prologue_footer = (tag*)((char*)base + TAG_SIZE);
+	tag* epilogue = (tag*)((char*)max_heap_addr - TAG_SIZE);
+	exp_set_payload_size(prologue_header, TWO_TAG_SIZE);
+	exp_set_payload_size(prologue_footer, TWO_TAG_SIZE);
+	exp_set_alloc(prologue_header);
+	exp_set_alloc(prologue_footer);
+	exp_set_payload_size(epilogue, 0);
+	exp_set_alloc(epilogue);
 	
     // Set up initial header
-    Tag* initialHeader = (Tag*)heapListPtr;
-    size_t payloadSize = adjustedSize - TWO_TAG_SIZE - SPECIAL_TAG_SIZES;
-    ExpSetPayloadSize(initialHeader, payloadSize);
-    ExpSetFree(initialHeader);
+    tag* initial_header = (tag*)heap_list_ptr;
+    size_t payload_size = adjusted_size - TWO_TAG_SIZE - SPECIAL_TAG_SIZES;
+    exp_set_payload_size(initial_header, payload_size);
+    exp_set_free(initial_header);
 
     // Set up initial free list
-    FreeListPtr* flp = ExpGetFreeListPtr(initialHeader);
-    Tag* initPtr = NULL;
-    ExpSetPred(flp, initPtr);
-    ExpSetSucc(flp, initPtr);
-    freeListStart = initialHeader;
+    free_list_ptr* flp = exp_get_flp(initial_header);
+    tag* initPtr = NULL;
+    exp_set_pred(flp, initPtr);
+    exp_set_succ(flp, initPtr);
+    free_list_start = initial_header;
 
     // Set up footer tag
-    Tag* initialFooter = ExpGetFooter(initialHeader);
-    ExpSetPayloadSize(initialFooter, payloadSize);
-    ExpSetFree(initialFooter);
+    tag* initial_footer = exp_get_footer(initial_header);
+    exp_set_payload_size(initial_footer, payload_size);
+    exp_set_free(initial_footer);
 	
     return 1;
 }
 
-void* ExpMalloc(size_t reqSize) {
+void* 
+exp_malloc (size_t req_size) 
+{
     // Ensure that requested size is non zero
-    if (reqSize == 0) {
+    if (req_size == 0) {
         return NULL;
     }
 
     // Allocate space for new block and ensure that it is aligned and atleast MIN_BLOCK_SIZE
-    size_t totalSize = ExpRoundUp(reqSize + TWO_TAG_SIZE, ALIGN);
-    totalSize = (totalSize >= MIN_BLOCK_SIZE) ? totalSize : MIN_BLOCK_SIZE;
+    size_t total_size = exp_round_up(req_size + TWO_TAG_SIZE, ALIGN);
+    total_size = (total_size >= MIN_BLOCK_SIZE) ? total_size : MIN_BLOCK_SIZE;
 
-    Tag* iterHeader = freeListStart;
+    tag* iter_header = free_list_start;
 
     // Iterate through free list until we find a space to insert new block
-    while (iterHeader != NULL) {
-        FreeListPtr* iterFLP = ExpGetFreeListPtr(iterHeader);
-        size_t payloadSize = ExpGetPayloadSize(iterHeader);
+    while (iter_header != NULL) {
+        free_list_ptr* iter_flp = exp_get_flp(iter_header);
+        size_t payload_size = exp_get_payload_size(iter_header);
 
-        if (payloadSize >= totalSize) {
+        if (payload_size >= total_size) {
             // Case where we can alloc requested block and create new free block with remaining space
-            if (payloadSize >= totalSize + MIN_BLOCK_SIZE) {
+            if (payload_size >= total_size + MIN_BLOCK_SIZE) {
                 // Set payload and alloc status for current header
-                ExpSetPayloadSize(iterHeader, totalSize - TWO_TAG_SIZE);
-                ExpSetAlloc(iterHeader);
+                exp_set_payload_size(iter_header, total_size - TWO_TAG_SIZE);
+                exp_set_alloc(iter_header);
 
                 // Set payload and alloc status for current footer
-                Tag* iterFooter = ExpGetFooter(iterHeader);
-                ExpSetPayloadSize(iterFooter, totalSize - TWO_TAG_SIZE);
-                ExpSetAlloc(iterFooter);
+                tag* iter_footer = exp_get_footer(iter_header);
+                exp_set_payload_size(iter_footer, total_size - TWO_TAG_SIZE);
+                exp_set_alloc(iter_footer);
 
-                Tag* nextHeader = ExpGetNextHeader(iterHeader);
-                ExpSetPayloadSize(nextHeader, payloadSize - totalSize);
-                ExpSetFree(nextHeader);
+                tag* next_header = exp_get_next_header(iter_header);
+                exp_set_payload_size(next_header, payload_size - total_size);
+                exp_set_free(next_header);
 
-                Tag* nextFooter = ExpGetFooter(nextHeader);
-                ExpSetPayloadSize(nextFooter, payloadSize - totalSize);
-                ExpSetFree(nextFooter);
+                tag* next_footer = exp_get_footer(next_header);
+                exp_set_payload_size(next_footer, payload_size - total_size);
+                exp_set_free(next_footer);
 
                 // Update Free List Pointers
-                FreeListPtr* nextFLP = ExpGetFreeListPtr(nextHeader);
+                free_list_ptr* next_flp = exp_get_flp(next_header);
                 // Case where we are at beginning of list
-                if (iterFLP->pred == NULL) {
-                    freeListStart = nextHeader;
-                    ExpSetPred(nextFLP, iterFLP->pred);
+                if (iter_flp->pred == NULL) {
+                    free_list_start = next_header;
+                    exp_set_pred(next_flp, iter_flp->pred);
                     // Modify successor if it exists
-                    if (iterFLP->succ != NULL) {
-                        FreeListPtr* succFLP = ExpGetFreeListPtr(iterFLP->succ);
-                        Tag* succHeader = ExpGetHeader(succFLP);
-                        ExpSetPred(succFLP, nextHeader);
-                        ExpSetSucc(nextFLP, succHeader);
+                    if (iter_flp->succ != NULL) {
+                        free_list_ptr* succ_flp = exp_get_flp(iter_flp->succ);
+                        tag* succ_header = exp_get_header(succ_flp);
+                        exp_set_pred(succ_flp, next_header);
+                        exp_set_succ(next_flp, succ_header);
                     }
                 }
                 
                 // Case where we are at end of list
-                if (iterFLP->succ == NULL) {
-                    ExpSetSucc(nextFLP, iterFLP->succ);
+                if (iter_flp->succ == NULL) {
+                    exp_set_succ(next_flp, iter_flp->succ);
                     // Modify predecessor if it exists
-                    if (iterFLP->pred != NULL) {
-                        FreeListPtr* predFLP = ExpGetFreeListPtr(iterFLP->pred);
-                        Tag* predHeader = ExpGetHeader(predFLP);
-                        ExpSetSucc(predFLP, nextHeader);
-                        ExpSetPred(nextFLP, predHeader);
+                    if (iter_flp->pred != NULL) {
+                        free_list_ptr* pred_flp = exp_get_flp(iter_flp->pred);
+                        tag* pred_header = exp_get_header(pred_flp);
+                        exp_set_succ(pred_flp, next_header);
+                        exp_set_pred(next_flp, pred_header);
                     }
                 }
                 
                 // Case where we are at middle of list
-                if (iterFLP->pred != NULL && iterFLP->succ != NULL) {
-                    FreeListPtr* predFLP = ExpGetFreeListPtr(iterFLP->pred);
-                    Tag* predHeader = ExpGetHeader(predFLP);
-                    FreeListPtr* succFLP = ExpGetFreeListPtr(iterFLP->succ);
-                    Tag* succHeader = ExpGetHeader(succFLP);
+                if (iter_flp->pred != NULL && iter_flp->succ != NULL) {
+                    free_list_ptr* pred_flp = exp_get_flp(iter_flp->pred);
+                    tag* pred_header = exp_get_header(pred_flp);
+                    free_list_ptr* succ_flp = exp_get_flp(iter_flp->succ);
+                    tag* succ_header = exp_get_header(succ_flp);
 
-                    ExpSetSucc(predFLP, nextHeader);
-                    ExpSetPred(nextFLP, predHeader);
+                    exp_set_succ(pred_flp, next_header);
+                    exp_set_pred(next_flp, pred_header);
 
-                    ExpSetPred(succFLP, nextHeader);
-                    ExpSetSucc(nextFLP, succHeader);
+                    exp_set_pred(succ_flp, next_header);
+                    exp_set_succ(next_flp, succ_header);
                 }
             }
             // Case where we cant create new free block, so just use all of the current block
             else {
                 // Set payload and alloc status for current header
-                ExpSetPayloadSize(iterHeader, payloadSize);
-                ExpSetAlloc(iterHeader);
+                exp_set_payload_size(iter_header, payload_size);
+                exp_set_alloc(iter_header);
 
                 // Set payload and alloc status for current footer
-                Tag* iterFooter = ExpGetFooter(iterHeader);
-                ExpSetPayloadSize(iterFooter, payloadSize);
-                ExpSetAlloc(iterFooter);
+                tag* iter_footer = exp_get_footer(iter_header);
+                exp_set_payload_size(iter_footer, payload_size);
+                exp_set_alloc(iter_footer);
 
                 // Update Free List Pointers
                 // Case where we are at beginning of list
-                if (iterFLP->pred == NULL) {
-                    freeListStart = iterFLP->succ;
+                if (iter_flp->pred == NULL) {
+                    free_list_start = iter_flp->succ;
                 }
                 // Case where we are at end of list
-                if (iterFLP->succ == NULL) {
-                    FreeListPtr* predFLP = ExpGetFreeListPtr(iterFLP->pred);
-                    ExpSetSucc(predFLP, iterFLP->succ);
+                if (iter_flp->succ == NULL) {
+                    free_list_ptr* pred_flp = exp_get_flp(iter_flp->pred);
+                    exp_set_succ(pred_flp, iter_flp->succ);
                 }
 
                 // Case where we are at middle of list
-                if (iterFLP->pred != NULL && iterFLP->succ != NULL) {
-                    FreeListPtr* predFLP = ExpGetPrevFreeListPtr(iterFLP);
-                    Tag* predHeader = ExpGetHeader(predFLP);
-                    FreeListPtr* succFLP = ExpGetNextFreeListPtr(iterFLP);
-                    Tag* succHeader = ExpGetHeader(succFLP);
+                if (iter_flp->pred != NULL && iter_flp->succ != NULL) {
+                    free_list_ptr* pred_flp = exp_get_prev_flp(iter_flp);
+                    tag* pred_header = exp_get_header(pred_flp);
+                    free_list_ptr* succ_flp = exp_get_next_flp(iter_flp);
+                    tag* succ_header = exp_get_header(succ_flp);
 
-                    ExpSetSucc(predFLP, succHeader);
-                    ExpSetPred(succFLP, predHeader);
+                    exp_set_succ(pred_flp, succ_header);
+                    exp_set_pred(succ_flp, pred_header);
                 }
             }
-            return (char*)iterHeader + TAG_SIZE;
+            return (char*)iter_header + TAG_SIZE;
         }
-        iterHeader = iterFLP->succ;
+        iter_header = iter_flp->succ;
     }
     // If we reach end of list, then there is not a large enough block of free space for the allocation
     return NULL;
 }
 
-void ExpFree(void* ptr) {
+void 
+exp_free (void* ptr) 
+{
     // Cant free NULL ptr, so print error message
     if (ptr == NULL) {
         return;
     }
     // Free the block
-    Tag* currHeader = ExpGetHeader(ptr);
-    Tag* currFooter = ExpGetFooter(currHeader);
-    ExpSetFree(currHeader);
-    ExpSetFree(currFooter);
-    ExpInsertFreeBlock(currHeader);
+    tag* curr_header = exp_get_header(ptr);
+    tag* curr_footer = exp_get_footer(curr_header);
+    exp_set_free(curr_header);
+    exp_set_free(curr_footer);
+    exp_insert_free_block(curr_header);
     
     // coalesce
-    ExpRightCoalesce(currHeader);
-    ExpLeftCoalesce(currHeader);
+    exp_right_coalesce(curr_header);
+    exp_left_coalesce(curr_header);
 }
 
-void* ExpRealloc(void* oldPtr, size_t newPayloadSize) {
-    Tag* currHeader = ExpGetHeader(oldPtr);
-    size_t oldPayloadSize = ExpGetPayloadSize(currHeader);
-    size_t totalNewSize = ExpRoundUp(newPayloadSize + TWO_TAG_SIZE, ALIGN);
-    totalNewSize = (totalNewSize >= MIN_BLOCK_SIZE) ? totalNewSize : MIN_BLOCK_SIZE;
-    newPayloadSize = totalNewSize - TWO_TAG_SIZE;
+void* 
+exp_realloc (void* old_ptr, size_t new_payload_size) 
+{
+    tag* curr_header = exp_get_header(old_ptr);
+    size_t old_payload_size = exp_get_payload_size(curr_header);
+    size_t total_new_size = exp_round_up(new_payload_size + TWO_TAG_SIZE, ALIGN);
+    total_new_size = (total_new_size >= MIN_BLOCK_SIZE) ? total_new_size : MIN_BLOCK_SIZE;
+    new_payload_size = total_new_size - TWO_TAG_SIZE;
 
     // Shrink case where we can make new block inside realloced block
-    if (newPayloadSize + MIN_BLOCK_SIZE <= oldPayloadSize) {
-        // Set payload for currHeader
-        ExpSetPayloadSize(currHeader, newPayloadSize);
+    if (new_payload_size + MIN_BLOCK_SIZE <= old_payload_size) {
+        // Set payload for curr_header
+        exp_set_payload_size(curr_header, new_payload_size);
 
         // Create footer for current block and set payload and alloc status
-        Tag* currFooter = ExpGetFooter(currHeader);
-        ExpSetPayloadSize(currFooter, newPayloadSize);
-        ExpSetAlloc(currFooter);
+        tag* curr_footer = exp_get_footer(curr_header);
+        exp_set_payload_size(curr_footer, new_payload_size);
+        exp_set_alloc(curr_footer);
 
         // Create header for new block and set payload and alloc status
-        Tag* nextHeader = ExpGetNextHeader(currHeader);
-        size_t nextPayloadSize = oldPayloadSize - newPayloadSize - TWO_TAG_SIZE;
-        ExpSetPayloadSize(nextHeader, nextPayloadSize);
-        ExpSetFree(nextHeader);
+        tag* next_header = exp_get_next_header(curr_header);
+        size_t next_payload_size = old_payload_size - new_payload_size - TWO_TAG_SIZE;
+        exp_set_payload_size(next_header, next_payload_size);
+        exp_set_free(next_header);
 
         // Create footer for new block and set payload and alloc status
-        Tag* nextFooter = ExpGetFooter(nextHeader);
-        ExpSetPayloadSize(nextFooter, nextPayloadSize);
-        ExpSetFree(nextFooter);
+        tag* next_footer = exp_get_footer(next_header);
+        exp_set_payload_size(next_footer, next_payload_size);
+        exp_set_free(next_footer);
 
         // Update Free List Pointers
-        ExpInsertFreeBlock(nextHeader);
+        exp_insert_free_block(next_header);
 
-        return oldPtr;
+        return old_ptr;
     }
 
     // Shrink / Extend + merge with next block
-    Tag* nextHeader = ExpGetNextHeader(currHeader);
-    size_t nextPayloadSize = ExpGetPayloadSize(nextHeader);
+    tag* next_header = exp_get_next_header(curr_header);
+    size_t next_payload_size = exp_get_payload_size(next_header);
 
-    if (ExpGetAlloc(nextHeader) == IS_FREE) {
+    if (exp_get_alloc(next_header) == IS_FREE) {
         // Shrink Case
-        FreeListPtr* nextFLP = ExpGetFreeListPtr(nextHeader);
-        FreeListPtr* nextPredFLP = ExpGetPrevFreeListPtr(nextFLP);
-        FreeListPtr* nextSuccFLP = ExpGetNextFreeListPtr(nextFLP);
-        Tag* predFreeBlock = ExpGetPred(nextFLP);
-        Tag* succFreeBlock = ExpGetSucc(nextFLP);
-        if (newPayloadSize <= oldPayloadSize) {
+        free_list_ptr* next_flp = exp_get_flp(next_header);
+        free_list_ptr* next_pred_flp = exp_get_prev_flp(next_flp);
+        free_list_ptr* next_succ_flp = exp_get_next_flp(next_flp);
+        tag* pred_free_block = exp_get_pred(next_flp);
+        tag* succ_free_block = exp_get_succ(next_flp);
+        if (new_payload_size <= old_payload_size) {
             // Set payload and alloc status for header of current block
-            ExpSetPayloadSize(currHeader, newPayloadSize);
+            exp_set_payload_size(curr_header, new_payload_size);
 
             // Set payload and alloc status for footer of current block
-            Tag* currFooter = ExpGetFooter(currHeader);
-            ExpSetPayloadSize(currFooter, newPayloadSize);
-            ExpSetAlloc(currFooter);
+            tag* curr_footer = exp_get_footer(curr_header);
+            exp_set_payload_size(curr_footer, new_payload_size);
+            exp_set_alloc(curr_footer);
 
             // Set payload and alloc status for header of next block
-            nextPayloadSize = nextPayloadSize + (oldPayloadSize - newPayloadSize);
-            Tag* nextHeader = ExpGetNextHeader(currHeader);
-            ExpSetPayloadSize(nextHeader, nextPayloadSize);
-            ExpSetFree(nextHeader);
+            next_payload_size = next_payload_size + (old_payload_size - new_payload_size);
+            tag* next_header = exp_get_next_header(curr_header);
+            exp_set_payload_size(next_header, next_payload_size);
+            exp_set_free(next_header);
 
             // Set payload and alloc status for footer of next block
-            Tag* nextFooter = ExpGetFooter(nextHeader);
-            ExpSetPayloadSize(nextFooter, nextPayloadSize);
-            ExpSetFree(nextFooter);
+            tag* next_footer = exp_get_footer(next_header);
+            exp_set_payload_size(next_footer, next_payload_size);
+            exp_set_free(next_footer);
 
             // Update Free List Pointers
-            nextFLP = ExpGetFreeListPtr(nextHeader);
-            ExpSetPred(nextFLP, predFreeBlock);
-            ExpSetSucc(nextFLP, succFreeBlock);
+            next_flp = exp_get_flp(next_header);
+            exp_set_pred(next_flp, pred_free_block);
+            exp_set_succ(next_flp, succ_free_block);
 
             // Update predecessor block successor and successor block predecessor
-            // Update predecessor block successor if it exists or make nextHeader beginning of free list
-            if (predFreeBlock == NULL) {
-                freeListStart = nextHeader;
+            // Update predecessor block successor if it exists or make next_header beginning of free list
+            if (pred_free_block == NULL) {
+                free_list_start = next_header;
             }
             else {
-                ExpSetSucc(nextPredFLP, nextHeader);
+                exp_set_succ(next_pred_flp, next_header);
             }
             // Update successor block predecessor if it exists
-            if (succFreeBlock != NULL) {
-                ExpSetPred(nextSuccFLP, nextHeader);    
+            if (succ_free_block != NULL) {
+                exp_set_pred(next_succ_flp, next_header);    
             }
 
-            return oldPtr;
+            return old_ptr;
         }
         // Extend Case
-        if (newPayloadSize - oldPayloadSize <= nextPayloadSize - TWO_TAG_SIZE - FREE_LIST_POINTERS_SIZE) {
+        if (new_payload_size - old_payload_size <= next_payload_size - TWO_TAG_SIZE - FREE_LIST_POINTERS_SIZE) {
             // Set payload and alloc status for header of current block
-            ExpSetPayloadSize(currHeader, newPayloadSize);
+            exp_set_payload_size(curr_header, new_payload_size);
 
             // Set payload and alloc status for footer of current block
-            Tag* currFooter = ExpGetFooter(currHeader);
-            ExpSetPayloadSize(currFooter, newPayloadSize);
-            ExpSetAlloc(currFooter);
+            tag* curr_footer = exp_get_footer(curr_header);
+            exp_set_payload_size(curr_footer, new_payload_size);
+            exp_set_alloc(curr_footer);
 
             // Set payload and alloc status for header of next block
-            nextPayloadSize = nextPayloadSize - (newPayloadSize - oldPayloadSize);
-            Tag* nextHeader = ExpGetNextHeader(currHeader);
-            ExpSetPayloadSize(nextHeader, nextPayloadSize);
-            ExpSetFree(nextHeader);
+            next_payload_size = next_payload_size - (new_payload_size - old_payload_size);
+            tag* next_header = exp_get_next_header(curr_header);
+            exp_set_payload_size(next_header, next_payload_size);
+            exp_set_free(next_header);
 
             // Set payload and alloc status for footer of next block
-            Tag* nextFooter = ExpGetFooter(nextHeader);
-            ExpSetPayloadSize(nextFooter, nextPayloadSize);
-            ExpSetFree(nextFooter);
+            tag* next_footer = exp_get_footer(next_header);
+            exp_set_payload_size(next_footer, next_payload_size);
+            exp_set_free(next_footer);
 
             // Update free list pointers
-            nextFLP = ExpGetFreeListPtr(nextHeader);
-            ExpSetPred(nextFLP, predFreeBlock);
-            ExpSetSucc(nextFLP, succFreeBlock);
+            next_flp = exp_get_flp(next_header);
+            exp_set_pred(next_flp, pred_free_block);
+            exp_set_succ(next_flp, succ_free_block);
 
             // Update predecessor block successor and successor block predecessor
-            // Update predecessor block successor if it exists or make nextHeader beginning of free list
-            if (predFreeBlock == NULL) {
-                freeListStart = nextHeader;
+            // Update predecessor block successor if it exists or make next_header beginning of free list
+            if (pred_free_block == NULL) {
+                free_list_start = next_header;
             }
             else {
-                ExpSetSucc(nextPredFLP, nextHeader);
+                exp_set_succ(next_pred_flp, next_header);
             }
-            if (succFreeBlock != NULL) {
-                ExpSetPred(nextSuccFLP, nextHeader);
+            if (succ_free_block != NULL) {
+                exp_set_pred(next_succ_flp, next_header);
             }
-            return oldPtr;
+            return old_ptr;
         }
     }
     // Malloc, memcpy, and free if we cant resize in place
-    void* newPtr = ExpMalloc(newPayloadSize);
-    memcpy(newPtr, oldPtr, oldPayloadSize);
-    ExpFree(oldPtr);
-    return newPtr;
+    void* new_ptr = exp_malloc(new_payload_size);
+    memcpy(new_ptr, old_ptr, old_payload_size);
+    exp_free(old_ptr);
+    return new_ptr;
 }
 
-void ExpHeapDestroy(void) {
-	if (heapSize > 0) {
-		sbrk(-heapSize); // Deletes heap if it has been allocated previously
-		heapSize = 0;
+void 
+exp_heap_destroy (void) 
+{
+	if (heap_size > 0) {
+		sbrk(-heap_size); // Deletes heap if it has been allocated previously
+		heap_size = 0;
 	}
 }

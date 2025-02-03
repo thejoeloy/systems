@@ -16,48 +16,48 @@
 #define SPECIAL_TAG_SIZES 12
 #define MIN_BLOCK_SIZE 24
 
-// Boundary Tag Structure
-typedef struct Tag {
+// Boundary tag Structure
+typedef struct tag {
   uint32_t tag;
-} Tag;
+} tag;
 
-typedef struct FreeListPtr {
-    Tag* pred;
-    Tag* succ;
-} FreeListPtr;
+typedef struct free_list_ptr {
+    tag* pred;
+    tag* succ;
+} free_list_ptr;
 
-// Tag Helpers
-Tag* ExpGetHeader(void* ptr);
-Tag* ExpGetFooter(Tag* currHeader);
-Tag* ExpGetNextHeader(Tag* currHeader);
-Tag* ExpGetPrevFooter(Tag* currHeader);
-Tag* ExpGetPrevHeader(Tag* prevFooter);
-size_t ExpGetAlloc(Tag* t);
-size_t ExpGetPayloadSize(Tag* t);
-void ExpSetFree(Tag* t);
-void ExpSetAlloc(Tag* t);
-void ExpSetPayloadSize(Tag* t, size_t size);
-// FreeListPtr helpers
-FreeListPtr* ExpGetFreeListPtr(Tag* currHeader);
-FreeListPtr* ExpGetNextFreeListPtr(FreeListPtr* currFLP);
-FreeListPtr* ExpGetPrevFreeListPtr(FreeListPtr* currFLP);
-Tag* ExpGetPred(FreeListPtr* flp);
-Tag* ExpGetSucc(FreeListPtr* flp);
-void ExpSetPred(FreeListPtr* flp, Tag* pred);
-void ExpSetSucc(FreeListPtr* flp, Tag* succ);
+// tag Helpers
+tag* exp_get_header(void* ptr);
+tag* exp_get_footer(tag* curr_header);
+tag* exp_get_next_header(tag* curr_header);
+tag* exp_get_prev_footer(tag* curr_header);
+tag* exp_get_prev_header(tag* prev_footer);
+size_t exp_get_alloc(tag* t);
+size_t exp_get_payload_size(tag* t);
+void exp_Set_free(tag* t);
+void exp_Set_alloc(tag* t);
+void exp_set_payload_size(tag* t, size_t size);
+// free_list_ptr helpers
+free_list_ptr* exp_get_free_list_ptr(tag* curr_header);
+free_list_ptr* exp_get_next_flp(free_list_ptr* curr_flp);
+free_list_ptr* exp_get_prev_flp(free_list_ptr* curr_flp);
+tag* exp_get_pred(free_list_ptr* flp);
+tag* exp_get_succ(free_list_ptr* flp);
+void exp_set_pred(free_list_ptr* flp, tag* pred);
+void exp_set_succ(free_list_ptr* flp, tag* succ);
 // Heap function Helpers
-size_t ExpRoundUp(size_t size, size_t mult);
-void ExpInsertFreeBlock(Tag* currHeader);
-void ExpLeftCoalesce(Tag* currHeader);
-void ExpRightCoalesce(Tag* currHeader);
+size_t exp_round_up(size_t size, size_t mult);
+void exp_insert_free_block(tag* curr_header);
+void exp_left_coalesce(tag* curr_header);
+void exp_right_coalesce(tag* curr_header);
 // Heap Debugging
-void IterateHeap();
-void PrintTag(Tag* t);
+void iterate_heap();
+void print_tag(tag* t);
 // Functions for Heap
-int ExpHeapInit(size_t size);
-void ExpHeapDestroy(void);
-void* ExpMalloc(size_t reqSize);
-void ExpFree(void* ptr);
-void* ExpRealloc(void* oldPtr, size_t newPayloadSize);
+int exp_heap_init(size_t size);
+void exp_heap_destroy(void);
+void* exp_malloc(size_t req_size);
+void exp_free(void* ptr);
+void* exp_realloc(void* oldPtr, size_t new_payload_size);
 
 #endif // EXPLICIT_H

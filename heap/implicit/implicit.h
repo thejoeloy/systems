@@ -13,34 +13,34 @@
 #define SPECIAL_TAG_SIZES 12
 #define MIN_BLOCK_SIZE 16
 
-// Boundary Tag Structure
-typedef struct Tag {
+// Boundary tag Structure
+typedef struct tag {
   uint32_t tag;
-} Tag;
+} tag;
 
 // Header and Footer helper functions
-Tag* ImpGetHeader(void* ptr);
-Tag* ImpGetFooter(Tag* currHeader);
-Tag* ImpGetNextHeader(Tag* currHeader);
-Tag* ImpGetPrevFooter(Tag* currHeader);
-Tag* ImpGetPrevHeader(Tag* prevFooter);
-size_t ImpGetAlloc(Tag* t);
-size_t ImpGetPayloadSize(Tag* t);
-void ImpSetFree(Tag* t);
-void ImpSetAlloc(Tag* t);
-void ImpSetPayloadSize(Tag* t, size_t size);
+tag* imp_get_header(void* ptr);
+tag* imp_get_footer(tag* currHeader);
+tag* imp_get_next_header(tag* currHeader);
+tag* imp_get_prev_footer(tag *currHeader);
+tag* imp_get_prev_header(tag* prevFooter);
+size_t imp_get_alloc(tag* t);
+size_t imp_get_payload_size(tag* t);
+void imp_set_free(tag* t);
+void imp_set_alloc(tag* t);
+void imp_set_payload_size(tag* t, size_t size);
 // Heap helper functions
-size_t ImpRoundUp(size_t size, size_t mult);
-void ImpLeftCoalesce(Tag* currHeader);
-void ImpRightCoalesce(Tag* currHeader);
+size_t imp_round_up(size_t size, size_t mult);
+void imp_left_coalesce(tag* currHeader);
+void imp_right_coalesce(tag* currHeader);
 // Heap debugging functions
-void PrintTag(Tag* t);
-void IterateHeap();
+void print_tag(tag* t);
+void iterate_heap();
 // Heap functions
-int  ImpHeapInit(size_t size);
-void ImpHeapDestroy(void);
-void* ImpMalloc(size_t reqSize);
-void ImpFree(void* ptr);
-void* ImpRealloc(void* oldPtr, size_t newPayloadSize);
+int  imp_heap_init(size_t size);
+void imp_heap_destroy(void);
+void* imp_malloc(size_t reqSize);
+void imp_free(void* ptr);
+void* imp_realloc(void* oldPtr, size_t newPayloadSize);
 
 #endif // IMPLICIT_H

@@ -21,33 +21,33 @@ do
         init)
             # init <heap_size>
             heap_size=$(echo $line | awk '{print $2}')
-            echo "    ImpHeapInit($heap_size);" >> $output_file
+            echo "    imp_heap_init($heap_size);" >> $output_file
             ;;
         a)
             # a <id-number> <size>
             id=$(echo $line | awk '{print $2}')
             size=$(echo $line | awk '{print $3}')
-            echo "    void* p$id = ImpMalloc($size);" >> $output_file
+            echo "    void* p$id = imp_malloc($size);" >> $output_file
             ;;
         r)
             # r <id-number> <size>
             id=$(echo $line | awk '{print $2}')
             size=$(echo $line | awk '{print $3}')
-            echo "    p$id = ImpRealloc(p$id, $size);" >> $output_file
+            echo "    p$id = imp_realloc(p$id, $size);" >> $output_file
             ;;
         f)
             # f <id-number>
             id=$(echo $line | awk '{print $2}')
-            echo "    ImpFree(p$id);" >> $output_file
+            echo "    imp_free(p$id);" >> $output_file
             ;;
         destroy)
             # destroy <heap_size>
             heap_size=$(echo $line | awk '{print $2}')
-            echo "    ImpHeapDestroy();" >> $output_file
+            echo "    imp_heap_destroy();" >> $output_file
             ;;
         iterate)
             # iterate
-            echo "    IterateHeap();" >> $output_file
+            echo "    iterate_heap();" >> $output_file
             ;;
         *)
             # Handle invalid command
