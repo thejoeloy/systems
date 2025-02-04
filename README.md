@@ -21,7 +21,7 @@ Heap Allocator: Contains implementations of the implicit free list and explicit 
 Programmer's Perspective by Bryant and O'Hallaron. Both allocators have a scheme in which coalescing is performed immediately. The explicit free
 list heap allocator maintains its free list in address order. 
 
-Shell: TODO! Contains an implementation of a shell that is based on both the shell skeleton provided in Computer Systems: A Programmer's Perspective 
+Shell: Contains an implementation of a shell that is based on both the shell skeleton provided in Computer Systems: A Programmer's Perspective 
 and the Stanford CS110 assignment Stanford Shell. This program is capable of running built-in system commands, pipelining, redirection, signal
 handling, background tasks, and keyboard interrupts.
 
