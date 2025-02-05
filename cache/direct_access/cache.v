@@ -2,14 +2,21 @@
 module cache (
     input clk,
     input r,
-    input rw,                                       // Request type: read = 0, write = 1
-    input valid,                                    // Request is valid
-    input wire [ADDR_WIDTH-1:0] cpu_req_addr,
-    input wire [DATA_WIDTH-1:0] cpu_req_data,
-    input wire mem_ready,
-    input wire [DATA_WIDTH-1:0] mem_data,
-    output wire [DATA_WIDTH-1:0] cache_data,
-    output wire cache_hit
+    // Cache <-> Processor Signals
+    input cpu2cache_rw,                                       // Request type: read = 0, write = 1
+    input cpu2cache_valid,                                    // Request is valid
+    input wire [ADDR_WIDTH-1:0] cpu2cache_addr,
+    input wire [DATA_WIDTH-1:0] cpu2cache_data,
+    output wire cache2cpu_ready,
+    output wire cache2cpu_hit,
+    output wire [DATA_WIDTH-1:0] cache2cpu_data,   
+    // Cache <-> Memory Signals
+    output wire cache2mem_rw,
+    output wire cache2mem_valid,
+    output wire [ADDR_WIDTH-1:0] cache2mem_addr,
+    output wire [DATA_BLOCK_SIZE-1:0] cache2mem_data,
+    input wire mem2cache_ready,
+    output wire [DATA_BLOCK_SIZE-1:0] mem2cache_data
 );
 
     // Parameters for address and data entries
@@ -32,10 +39,10 @@ module cache (
     localparam BYTE_OFFSET_LEN = 2;
     
     // cpu req address fields
-    wire [TAG_LEN-1:0] cpu_req_tag = cpu_req_addr[TAG_MSB:TAG_LSB];
-    wire [INDEX_LEN-1:0] cpu_req_index = cpu_req_addr[INDEX_MSB:INDEX_LSB];
-    wire [BLOCK_OFFSET_LEN-1:0] cpu_req_block_offset = cpu_req_addr[BLOCK_OFFSET_MSB:BLOCK_OFFSET_LSB];
-    wire [BYTE_OFFSET_LEN-1:0] cpu_req_byte_offset = cpu_req_addr[BYTE_OFFSET_MSB:BYTE_OFFSET_LSB];
+    wire [TAG_LEN-1:0] req_tag = cpu2cache_addr[TAG_MSB:TAG_LSB];
+    wire [INDEX_LEN-1:0] req_index = cpu2cache_addr[INDEX_MSB:INDEX_LSB];
+    wire [BLOCK_OFFSET_LEN-1:0] req_block_offset = cpu2cache_addr[BLOCK_OFFSET_MSB:BLOCK_OFFSET_LSB];
+    wire [BYTE_OFFSET_LEN-1:0] req_byte_offset = cpu2cache_addr[BYTE_OFFSET_MSB:BYTE_OFFSET_LSB];
 
     // Parameters for data cache 
     localparam DATA_BLOCK_SIZE = 128;
@@ -50,19 +57,18 @@ module cache (
     localparam BLOCK4_LSB = 0;
     
     reg [DATA_BLOCK_SIZE-1:0] cache_data [0:NUM_DATA_ENTRIES-1];
-    wire [DATA_BLOCK_SIZE-1:0] cache_block = cache_data[DATA_BLOCK_SIZE-1:0][cpu_req_index];
+    wire [DATA_BLOCK_SIZE-1:0] cache_block = cache_data[req_index];
 
     // Parameters for tag cache 
     localparam TAG_BLOCK_SIZE = 20; 
-    localparam TAG_WIDTH = 18;
     localparam VALID_BIT = 19;
     localparam DIRTY_BIT = 18;
     
     reg [TAG_BLOCK_SIZE-1:0] tag_data [0:NUM_DATA_ENTRIES-1];
   
-    wire is_valid = tag_data[TAG_BIT][cpu_req_index];
-    wire is_dirty = tag_data[DIRTY_BIT][cpu_req_index];
-    wire [INDEX_LEN-1:0] tag = tag_data[INDEX_LEN-1:0][cpu_req_index];
+    wire is_valid = tag_data[req_index][VALID_BIT];
+    wire is_dirty = tag_data[req_index][DIRTY_BIT];
+    wire [TAG_WIDTH-1:0] tag = tag_data[req_index][TAG_WIDTH-1:0];
    
     // States for cache controller
     localparam IDLE = 2'b00;
@@ -80,18 +86,18 @@ module cache (
         else begin
             case (state)
                 IDLE : begin
-                    state = (valid) ? COMPARE_TAG : IDLE;
+                    state = (cpu2cache_valid) ? COMPARE_TAG : IDLE;
                 end
                 COMPARE_TAG : begin
-                    state = (!hit && is_dirty) ? WRITE_BACK :
-                            (!hit && !is_dirty) ? ALLOCATE :
-                            (hit) ? IDLE : COMPARE_TAG;
+                    state = (!cpu2cache_hit && is_dirty) ? WRITE_BACK :
+                            (!cpu2cache_hit && !is_dirty) ? ALLOCATE :
+                            (cpu2cache_hit) ? IDLE : COMPARE_TAG;
                 end
                 ALLOCATE : begin
-                    state = (mem_ready) ? COMPARE_TAG : ALLOCATE;
+                    state = (mem2cache_ready) ? COMPARE_TAG : ALLOCATE;
                 end
                 WRITE_BACK : begin
-                    state = (mem_ready) ? ALLOCATE : WRITE_BACK;
+                    state = (mem2cache_ready) ? ALLOCATE : WRITE_BACK;
                 end
             endcase
         end
@@ -100,7 +106,7 @@ module cache (
     wire [DATA_BLOCK_SIZE-1:0] cache_data_write;
     wire [DATA_BLOCK_SIZE-1:0] cache_data_read;
 
-    assign cache_data_read = cache_data[cpu_req_index];
+    assign cache_data_read = cache_data[req_index];
 
     assign cache_data_write = () ? :
                               () ? :
@@ -111,25 +117,26 @@ module cache (
         integer i;
         if (r) begin
             for (i = 0; i < NUM_DATA_ENTRIES - 1; i = i + 1) begin
-                cache_data[i] <= 128'b0;
+                cache_data[i] <= 0;
+                tag_data[i] <= 0;
             end
         end
         else begin
-            if (valid) begin
-                // If rw is 1, we write
-                if (rw) begin
-                    cache_data[DATA_BLOCK_SIZE-1:0][cpu_req_index] <= cache_data_write;
+            if (cpu2cache_valid) begin
+                // If cpu2cache_rw is 1, we write
+                if (cpu2cache_rw) begin
+                    cache_data[req_index] <= cache_data_write;
                 end
                 // Otherwise we read
                 else begin
-                    cache_data_read <= cache_data[DATA_BLOCK_SIZE-1:0][cpu_req_index];
+                    cache_data_read <= cache_data[req_index];
                 end
             end
         end
     end
     
-    assign cache_hit = (cpu_req_tag == tag && is_valid) ? 1'b1 : 1'b0;
-    assign cache_data = (cpu_req_block_offset == 2'b00) ? cache_data_read[BLOCK1_MSB:BLOCK1_LSB] :
+    assign cache2cpu_hit = (req_tag == tag && is_valid) ? 1'b1 : 1'b0;
+    assign cache2cpu_data = (cpu_req_block_offset == 2'b00) ? cache_data_read[BLOCK1_MSB:BLOCK1_LSB] :
                         (cpu_req_block_offset == 2'b01) ? cache_data_read[BLOCK2_MSB:BLOCK2_LSB] :
                         (cpu_req_block_offset == 2'b10) ? cache_data_read[BLOCK3_MSB:BLOCK3_LSB] :
                         cache_data_read[BLOCK4_MSB:BLOCK4_LSB];
