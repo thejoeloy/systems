@@ -47,17 +47,24 @@ module cache (
     // Parameters for data cache 
     localparam DATA_BLOCK_SIZE = 128;
     localparam NUM_DATA_ENTRIES = 1024;
-    localparam BLOCK1_MSB = 127;
-    localparam BLOCK1_LSB = 96;
-    localparam BLOCK2_MSB = 95;
-    localparam BLOCK2_LSB = 64;
-    localparam BLOCK3_MSB = 63;
-    localparam BLOCK3_LSB = 32;
-    localparam BLOCK4_MSB = 31;
-    localparam BLOCK4_LSB = 0;
+    localparam BLOCK1_MSB = 31;
+    localparam BLOCK1_LSB = 0;
+    localparam BLOCK2_MSB = 63;
+    localparam BLOCK2_LSB = 32;
+    localparam BLOCK3_MSB = 95;
+    localparam BLOCK3_LSB = 64;
+    localparam BLOCK4_MSB = 127;
+    localparam BLOCK4_LSB = 96;
     
     reg [DATA_BLOCK_SIZE-1:0] cache_data [0:NUM_DATA_ENTRIES-1];
     wire [DATA_BLOCK_SIZE-1:0] cache_block = cache_data[req_index];
+
+    // Initialize cache to 0 values
+    initial begin
+        integer i;
+        for (i = 0; i < NUM_DATA_ENTRIES; i = i + 1)
+            cache_data[i] = 0;
+    end
 
     // Parameters for tag cache 
     localparam TAG_BLOCK_SIZE = 20; 
@@ -70,6 +77,13 @@ module cache (
     wire is_dirty = tag_data[req_index][DIRTY_BIT];
     wire [TAG_WIDTH-1:0] tag = tag_data[req_index][TAG_WIDTH-1:0];
    
+    // Initialize tags to 0 values
+    initial begin
+        integer j;
+        for (j = 0; j < NUM_DATA_ENTRIES; j = j + 1)
+            tag_data[j] = 0;
+    end
+
     // States for cache controller
     localparam IDLE = 2'b00;
     localparam COMPARE_TAG = 2'b01;
@@ -79,62 +93,40 @@ module cache (
     // FSM for cache controller
     reg [1:0] state;
 
-    always @(posedge clk or posedge r) begin
-        if (r) begin
-            state <= IDLE;
-        end
-        else begin
-            case (state)
-                IDLE : begin
-                    state = (cpu2cache_valid) ? COMPARE_TAG : IDLE;
-                end
-                COMPARE_TAG : begin
-                    state = (!cpu2cache_hit && is_dirty) ? WRITE_BACK :
-                            (!cpu2cache_hit && !is_dirty) ? ALLOCATE :
-                            (cpu2cache_hit) ? IDLE : COMPARE_TAG;
-                end
-                ALLOCATE : begin
-                    state = (mem2cache_ready) ? COMPARE_TAG : ALLOCATE;
-                end
-                WRITE_BACK : begin
-                    state = (mem2cache_ready) ? ALLOCATE : WRITE_BACK;
-                end
-            endcase
-        end
-    end
+    wire [DATA_BLOCK_SIZE-1:0] data_write;
+    wire [DATA_BLOCK_SIZE-1:0] data_read;
 
-    wire [DATA_BLOCK_SIZE-1:0] cache_data_write;
-    wire [DATA_BLOCK_SIZE-1:0] cache_data_read;
-
-    assign cache_data_read = cache_data[req_index];
-
-    assign cache_data_write = () ? :
-                              () ? :
-                              () ? :
-
-
-    always @(posedge clk or posedge r) begin
-        integer i;
-        if (r) begin
-            for (i = 0; i < NUM_DATA_ENTRIES - 1; i = i + 1) begin
-                cache_data[i] <= 0;
-                tag_data[i] <= 0;
-            end
-        end
-        else begin
-            if (cpu2cache_valid) begin
-                // If cpu2cache_rw is 1, we write
-                if (cpu2cache_rw) begin
-                    cache_data[req_index] <= cache_data_write;
-                end
-                // Otherwise we read
-                else begin
-                    cache_data_read <= cache_data[req_index];
-                end
-            end
-        end
-    end
     
+    always @(*) begin
+            
+    end
+
+    always @(posedge clk) begin
+        if (r) begin
+           state <= IDLE;
+        end
+        else begin
+           case(state)
+               IDLE : begin
+                   state <= (cpu2cache_valid) ? COMPARE_TAG : IDLE;
+               end
+               COMPARE_TAG : begin
+                   state <= (cache2cpu_hit) ? IDLE :
+                            (!cache2cpu_hit && !is_dirty) ? ALLOCATE :
+                            (!cache2cpu_hit && is_dirty) ? WRITE_BACK : 
+                            COMPARE_TAG;
+               end
+               ALLOCATE : begin
+                   state <= (mem2cache_ready) ? COMPARE_TAG : ALLOCATE;
+               end
+               WRITE_BACK : begin
+                   state <= (mem2cache_ready) ? ALLOCATE : WRITE_BACK;
+               end
+           endcase
+        end
+    end
+
+
     assign cache2cpu_hit = (req_tag == tag && is_valid) ? 1'b1 : 1'b0;
     assign cache2cpu_data = (cpu_req_block_offset == 2'b00) ? cache_data_read[BLOCK1_MSB:BLOCK1_LSB] :
                         (cpu_req_block_offset == 2'b01) ? cache_data_read[BLOCK2_MSB:BLOCK2_LSB] :
