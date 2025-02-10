@@ -28,11 +28,29 @@ module cache (
     reg [127:0] cache_data[0:CACHE_SIZE-1];
     reg [19:0] tag_data[0:CACHE_SIZE-1];
     
+    integer i;
     initial begin
-        integer i;
         for (i = 0; i < CACHE_SIZE; i = i + 1) begin
-            cache_data[i] = 0;
-            tag_data[i] = 0;
+            if (i == 0) begin
+                tag_data[i] = 20'b0_0_000000000000000000;
+                cache_data[i] = 32'h0000000F;
+            end
+            else if (i == 4) begin
+                tag_data[i] = 20'b0_0_000000000000000001;
+                cache_data[i] = 32'h000000F0;
+            end
+            else if (i == 8) begin
+                tag_data[i] = 20'b0_0_000000000000000010;
+                cache_data[i] = 32'h00000F00;
+            end
+            else if (i == 12) begin
+                tag_data[i] = 20'b0_0_000000000000000011;
+                cache_data[i] = 32'h0000F000;
+            end
+            else begin
+                cache_data[i] = 0;
+                tag_data[i] = 0;
+            end
         end
     end
     
