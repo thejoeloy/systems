@@ -36,11 +36,11 @@ module cache (
                 cache_data[i] = 32'h0000000F;
             end
             else if (i == 4) begin
-                tag_data[i] = 20'b0_0_000000000000000001;
+                tag_data[i] = 20'b1_0_000000000000000001;
                 cache_data[i] = 32'h000000F0;
             end
             else if (i == 8) begin
-                tag_data[i] = 20'b0_0_000000000000000010;
+                tag_data[i] = 20'b0_1_000000000000000010;
                 cache_data[i] = 32'h00000F00;
             end
             else if (i == 12) begin
@@ -84,6 +84,8 @@ module cache (
                              (!hit && !is_dirty) ? ALLOCATE :
                              (!hit && is_dirty)  ? WRITE_BACK : 
                                                    COMPARE_TAG;
+
+
                 end
                 ALLOCATE : begin
                     state <= (mem2cache_ready) ? COMPARE_TAG : ALLOCATE;    

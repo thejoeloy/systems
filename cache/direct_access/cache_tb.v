@@ -51,10 +51,25 @@ module cache_tb();
 
         #10 r = 0;
 
-        // IDLE -> Compare
-        cpu2cache_valid = 1;
+        // Read Miss (valid tag not set)
+        //cpu2cache_valid = 1;
+        //cpu2cache_addr = 32'b000000000000000000_0000000000_00_00;
+        //#10;
 
+        // Read Hit
+        //cpu2cache_valid = 1;
+        //cpu2cache_addr = 32'b000000000000000001_0000000100_00_00;
+        //#10;
+
+        // Write Miss
+        cpu2cache_valid = 1;
+        cpu2cache_addr = 32'b000000000000000010_0000001000_00_00;
         #10;
+
+        // Write Hit
+        //cpu2cache_valid = 1;
+        //cpu2cache_addr = 32'b000000000000000011_0000001100_00_00
+        //#10;
 
         #20 $finish;
     end
