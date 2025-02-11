@@ -64,28 +64,31 @@ module cache_tb();
         cpu2cache_valid = 1;
         cpu2cache_addr = 32'b000000000000000001_0000000100_00_00;
         #20;
-        //mem2cache_ready = 1;
-        //cpu2cache_valid = 0;
-        //#10;
-        //mem2cache_ready = 0;
+        mem2cache_ready = 1;
+        cpu2cache_valid = 0;
+        #10;
+        mem2cache_ready = 0;
         
         // TO DO EDIT WRITES!!!
         // Write Miss
-        //cpu2cache_valid = 1;
+        cpu2cache_valid = 1;
         cpu2cache_addr = 32'b000000000000000010_0000001000_00_00;
         #20;
         mem2cache_ready = 1;
         cpu2cache_valid = 0;
         cpu2cache_rw = 1;
         #10;
+        //mem2cache_ready = 0;
+        //#15;
+        //mem2cache_ready = 1;
+        #10;
         mem2cache_ready = 0;
-
         // Write Hit
         cpu2cache_valid = 1;
         cpu2cache_addr = 32'b000000000000000011_0000001100_00_00;
-        //#20;
-        //mem2cache_ready = 1;
-        //cpu2cache_valid = 0;
+        cpu2cache_data = 32'hFFFFFFFF;
+        #20;
+        cpu2cache_valid = 0;
 
         #20 $finish;
     end
