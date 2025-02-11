@@ -9,7 +9,7 @@ focus on open source components with licenses that encourage privacy, freedom, a
 CPU: Contains an implementation of the 5 stage pipelined RISC-V processor described in Computer Organization and Design by Patterson and Hennessey
 The processor implements the RV32I instructions. As of now, the processor is capable of running at 50 MHz on my Zedboard
 
-Cache: TODO! Contains an implementation of the direct mapped cache described in Computer Organization and Design by Patterson and Hennessey.
+Cache: Contains an implementation of the direct mapped cache described in Computer Organization and Design by Patterson and Hennessey.
 The cache has a write-back scheme that uses write allocate, has a block size of 4, uses 32 bit addresses, and has a valid and dirty bit per block.
 
 Virtual Memory Hardware: TODO! Contains an implementation of the hardware components and features that go into virtual memory. My implementation
