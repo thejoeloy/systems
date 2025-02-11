@@ -40,7 +40,7 @@ module cache_tb();
         $dumpfile("cache_tb.vcd");
         $dumpvars(0, cache_tb);
 
-        clk = 0;
+        clk = 1;
         r = 1;
         cpu2cache_valid = 0;
         cpu2cache_rw = 0;
@@ -52,24 +52,40 @@ module cache_tb();
         #10 r = 0;
 
         // Read Miss (valid tag not set)
-        //cpu2cache_valid = 1;
-        //cpu2cache_addr = 32'b000000000000000000_0000000000_00_00;
-        //#10;
+        cpu2cache_valid = 1;
+        cpu2cache_addr = 32'b000000000000000000_0000000000_00_00;
+        #20;
+        mem2cache_ready = 1;
+        cpu2cache_valid = 0;
+        #10;
+        mem2cache_ready = 0;
 
         // Read Hit
-        //cpu2cache_valid = 1;
-        //cpu2cache_addr = 32'b000000000000000001_0000000100_00_00;
-        //#10;
-
-        // Write Miss
         cpu2cache_valid = 1;
+        cpu2cache_addr = 32'b000000000000000001_0000000100_00_00;
+        #20;
+        //mem2cache_ready = 1;
+        //cpu2cache_valid = 0;
+        //#10;
+        //mem2cache_ready = 0;
+        
+        // TO DO EDIT WRITES!!!
+        // Write Miss
+        //cpu2cache_valid = 1;
         cpu2cache_addr = 32'b000000000000000010_0000001000_00_00;
+        #20;
+        mem2cache_ready = 1;
+        cpu2cache_valid = 0;
+        cpu2cache_rw = 1;
         #10;
+        mem2cache_ready = 0;
 
         // Write Hit
-        //cpu2cache_valid = 1;
-        //cpu2cache_addr = 32'b000000000000000011_0000001100_00_00
-        //#10;
+        cpu2cache_valid = 1;
+        cpu2cache_addr = 32'b000000000000000011_0000001100_00_00;
+        //#20;
+        //mem2cache_ready = 1;
+        //cpu2cache_valid = 0;
 
         #20 $finish;
     end
