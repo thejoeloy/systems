@@ -11,75 +11,76 @@ static void* max_heap_addr;
 static size_t heap_size;
 
 // Helper functions
-tag* 
+static size_t 
+imp_get_payload_size (tag* t) 
+{
+	return (size_t)((t->tag & PAYLOAD_SIZE_MASK) >> 3);
+}
+
+static tag* 
 imp_get_header (void* ptr) 
 {
 	return (tag*)((char*)ptr - TAG_SIZE);
 }
 
-tag* 
+static tag* 
 imp_get_footer (tag* curr_header) 
 {
 	return (tag*)((char*)curr_header + imp_get_payload_size(curr_header) + TAG_SIZE);
 }
 
-tag* 
+static tag* 
 imp_get_next_header (tag* curr_header) {
 	size_t payload_size = imp_get_payload_size(curr_header);
 	tag* next_header = (tag*)((char*)curr_header + (payload_size + TWO_TAG_SIZE));
 	return next_header;	
 }
 
-tag* 
+static tag* 
 imp_get_prev_footer (tag* curr_header) 
 {
 	return (tag*)((char*)curr_header - TAG_SIZE);	
 }
 
-tag* 
+static tag* 
 imp_get_prev_header (tag* prev_footer) 
 {
 	return (tag*)((char*)prev_footer - imp_get_payload_size(prev_footer) - TAG_SIZE);
 }
 
-size_t 
+static size_t 
 imp_get_alloc (tag* t) 
 {
 	return t->tag & IS_ALLOC;
 }
  
-size_t 
-imp_get_payload_size (tag* t) 
-{
-	return (size_t)((t->tag & PAYLOAD_SIZE_MASK) >> 3);
-}
 
-void 
+static void 
 imp_set_free (tag* t) 
 {
     t->tag &= PAYLOAD_SIZE_MASK;
 }
 
-void 
+static void 
 imp_set_alloc (tag* t) 
 {
     t->tag |= IS_ALLOC;
 }
 
-void 
+static void 
 imp_set_payload_size (tag* t, size_t size) 
 {
 	size <<= 3;
 	t->tag = (t->tag & IS_ALLOC) | size;
 }
 
-size_t 
+static size_t 
 imp_round_up (size_t size, size_t mult) 
 {
 	return (size + mult-1) & ~(mult-1);
 }
 
-void 
+static void 
 imp_right_coalesce (tag* curr_header) 
 {
     tag* next_header = imp_get_next_header(curr_header);
@@ -99,7 +100,7 @@ imp_right_coalesce (tag* curr_header)
     }
 }
 
-void 
+static void 
 imp_left_coalesce (tag* curr_header) 
 {
     tag* prev_footer = imp_get_prev_footer(curr_header);
@@ -121,7 +122,7 @@ imp_left_coalesce (tag* curr_header)
 }
 
 // Debugging functions
-void 
+static void 
 print_tag (tag* t) 
 {
 	if (t == NULL) return;

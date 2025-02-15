@@ -25,7 +25,7 @@ typedef struct free_list_ptr {
     tag* pred;
     tag* succ;
 } free_list_ptr;
-
+/*
 // tag Helpers
 tag* exp_get_header(void* ptr);
 tag* exp_get_footer(tag* curr_header);
@@ -50,9 +50,10 @@ size_t exp_round_up(size_t size, size_t mult);
 void exp_insert_free_block(tag* curr_header);
 void exp_left_coalesce(tag* curr_header);
 void exp_right_coalesce(tag* curr_header);
+*/
 // Heap Debugging
 void iterate_heap();
-void print_tag(tag* t);
+//void print_tag(tag* t);
 // Functions for Heap
 int exp_heap_init(size_t size);
 void exp_heap_destroy(void);

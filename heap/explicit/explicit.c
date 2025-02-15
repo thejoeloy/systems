@@ -12,19 +12,25 @@ static size_t heap_size;
 static tag* free_list_start;
 
 // tag helpers
-tag* 
+static size_t 
+exp_get_payload_size (tag* t) 
+{
+	return (size_t)((t->tag & PAYLOAD_SIZE_MASK) >> 3);
+}
+
+static tag* 
 exp_get_header (void* ptr) 
 {
 	return (tag*)((char*)ptr - TAG_SIZE);
 }
 
-tag* 
+static tag* 
 exp_get_footer (tag* curr_header) 
 {
 	return (tag*)((char*)curr_header + exp_get_payload_size(curr_header) + TAG_SIZE);
 }
 
-tag* 
+static tag* 
 exp_get_next_header (tag* curr_header) 
 {
 	size_t payload_size = exp_get_payload_size(curr_header);
@@ -32,43 +38,37 @@ exp_get_next_header (tag* curr_header)
 	return next_header;	
 }
 
-tag* 
+static tag* 
 exp_get_prev_footer (tag* curr_header) 
 {
 	return (tag*)((char*)curr_header - TAG_SIZE);	
 }
 
-tag* 
+static tag* 
 exp_get_prev_header (tag* prev_footer) 
 {
 	return (tag*)((char*)prev_footer - exp_get_payload_size(prev_footer) - TAG_SIZE);
 }
 
-size_t 
-exp_get_payload_size (tag* t) 
-{
-	return (size_t)((t->tag & PAYLOAD_SIZE_MASK) >> 3);
-}
-
-size_t 
+static size_t 
 exp_get_alloc (tag* t) 
 {
 	return t->tag & IS_ALLOC;
 }
 
-void 
+static void 
 exp_set_free (tag* t) 
 {
     t->tag &= PAYLOAD_SIZE_MASK;
 }
 
-void 
+static void 
 exp_set_alloc (tag* t) 
 {
     t->tag |= IS_ALLOC;
 }
 
-void 
+static void 
 exp_set_payload_size (tag* t, size_t size) 
 {
 	size <<= 3;
@@ -76,56 +76,56 @@ exp_set_payload_size (tag* t, size_t size)
 }
 
 // free_list_ptr helpers
-free_list_ptr* 
+static free_list_ptr* 
 exp_get_flp (tag* curr_header) 
 {
     return (free_list_ptr*)((char*)curr_header + TAG_SIZE);
 }
 
-free_list_ptr* 
+static free_list_ptr* 
 exp_get_next_flp (free_list_ptr* curr_flp) 
 {
     return exp_get_flp(curr_flp->succ);
 }
 
-free_list_ptr* 
+static free_list_ptr* 
 exp_get_prev_flp (free_list_ptr* curr_flp) 
 {
     return exp_get_flp(curr_flp->pred);
 }
 
-tag* 
+static tag* 
 exp_get_pred (free_list_ptr* flp) 
 {
     return flp->pred;
 }
 
-tag* 
+static tag* 
 exp_get_succ (free_list_ptr* flp) 
 {
     return flp->succ;
 }
 
-void 
+static void 
 exp_set_pred (free_list_ptr* flp, tag* pred) 
 {
     flp->pred = pred;
 }
 
-void 
+static void 
 exp_set_succ (free_list_ptr* flp, tag* succ) 
 {
     flp->succ = succ;
 }
 
 // Heap function helpers
-size_t 
+static size_t 
 exp_round_up (size_t size, size_t mult) 
 {
 	return (size + mult-1) & ~(mult-1);
 }
 
-void 
+static void 
 exp_insert_free_block (tag* curr_header) 
 {
     free_list_ptr* new_flp = exp_get_flp(curr_header);
@@ -170,7 +170,7 @@ exp_insert_free_block (tag* curr_header)
     }
 }
 
-void 
+static void 
 exp_right_coalesce (tag* curr_header) 
 {
     tag* next_header = exp_get_next_header(curr_header);
@@ -215,7 +215,7 @@ exp_right_coalesce (tag* curr_header)
     }
 }
 
-void 
+static void 
 exp_left_coalesce (tag* curr_header) 
 {
     tag* prev_footer = exp_get_prev_footer(curr_header);
@@ -256,7 +256,7 @@ exp_left_coalesce (tag* curr_header)
 }
 
 // Heap debugging
-void 
+static void 
 print_header (tag* curr_header) 
 {
 	if (curr_header == NULL) return;
@@ -269,7 +269,7 @@ print_header (tag* curr_header)
     }
 }
 
-void 
+static void 
 print_footer (tag* curr_footer) 
 {
     if (curr_footer == NULL) return;
