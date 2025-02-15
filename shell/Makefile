@@ -4,7 +4,7 @@ CFLAGS = -Wall -Wextra -g
 
 TARGET = shell
 
-SRCS = main.c
+SRCS = shell.c
 
 OBJS = $(SRCS:.c=.o)
 
